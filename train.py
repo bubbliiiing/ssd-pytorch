@@ -92,4 +92,4 @@ if __name__ == "__main__":
             print('iter:' + str(iteration) + '/' + str(epoch_size) + ' || Loc_Loss: %.4f || Conf_Loss: %.4f ||' % (loc_loss/(iteration+1),conf_loss/(iteration+1)), end=' ')
 
         print('Saving state, iter:', str(epoch+1))
-        torch.save(model.state_dict(), 'logs/Epoch%d-Loc%.4f-Conf%.4f'%((epoch+1),loc_loss/(iteration+1),conf_loss/(iteration+1)))
+        torch.save(model.state_dict(), 'logs/Epoch%d-Loc%.4f-Conf%.4f.pth'%((epoch+1),loc_loss/(iteration+1),conf_loss/(iteration+1)))
