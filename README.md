@@ -2,7 +2,7 @@
 这是一个ssd-pyrotch的源码，可以用于训练自己的模型。
 
 # 文件下载
-训练所需的ssd_weights.h5可以在百度云下载。  
+训练所需的ssd_weights.pth可以在百度云下载。  
 链接: https://pan.baidu.com/s/1ltXCkuSxKRJUsLi0IoBg2A  
 提取码: uqnw 
 # 训练步骤
