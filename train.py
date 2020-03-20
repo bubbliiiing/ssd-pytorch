@@ -41,16 +41,16 @@ if __name__ == "__main__":
         net = net.cuda()
 
     annotation_path = '2007_train.txt'
-    val_split = 0.1
     with open(annotation_path) as f:
         lines = f.readlines()
     np.random.seed(10101)
     np.random.shuffle(lines)
     np.random.seed(None)
-    num_val = int(len(lines)*val_split)
-    num_train = len(lines) - num_val
-    gen = Generator(Batch_size, lines[:num_train], lines[num_train:],
+    num_train = len(lines)
+
+    gen = Generator(Batch_size, lines,
                     (Config["min_dim"], Config["min_dim"]), Config["num_classes"]).generate()
+
 
     optimizer = optim.Adam(net.parameters(), lr=lr)
     criterion = MultiBoxLoss(Config['num_classes'], 0.5, True, 0, True, 3, 0.5,
