@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
 
     epoch_size = num_train // Batch_size
-    for epoch in range(Epoch):
+    for epoch in range(Start_iter,Epoch):
         if epoch%10==0:
             adjust_learning_rate(optimizer,lr,0.95,epoch)
         loc_loss = 0
