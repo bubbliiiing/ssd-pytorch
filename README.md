@@ -8,8 +8,7 @@
 4. [参考资料 Reference](#Reference)
 
 ### 所需环境
-tensorflow-gpu==1.13.1  
-keras==2.1.5  
+torch == 1.2.0
 
 ### 文件下载
 训练所需的ssd_weights.pth可以在百度云下载。  
