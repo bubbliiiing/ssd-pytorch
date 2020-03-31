@@ -14,11 +14,10 @@ from torch.autograd import Variable
 MEANS = (104, 117, 123)
 class SSD(object):
     _defaults = {
-        "model_path": 'model_data/ssd_weights.pth',
-        "classes_path": 'model_data/voc_classes.txt',
+        "model_path": 'logs/Epoch4-Loc0.5106-Conf1.3239.pth',
+        "classes_path": 'model_data/new_classes.txt',
         "model_image_size" : (300, 300, 3),
         "confidence": 0.5,
-        "Cuda": True
     }
 
     @classmethod
@@ -57,11 +56,10 @@ class SSD(object):
         model = ssd.get_ssd("test",Config["num_classes"])
         self.net = model
         model.load_state_dict(torch.load(self.model_path))
-        if self.Cuda:
-            self.net = torch.nn.DataParallel(self.net)
-            cudnn.benchmark = True
-            self.net = self.net.cuda()
-        model.load_state_dict(torch.load(self.model_path))
+
+        self.net = torch.nn.DataParallel(self.net)
+        cudnn.benchmark = True
+        self.net = self.net.cuda()
 
         print('{} model, anchors, and classes loaded.'.format(self.model_path))
         # 画框设置不同的颜色
@@ -77,17 +75,14 @@ class SSD(object):
     #---------------------------------------------------#
     def detect_image(self, image):
         image_shape = np.array(np.shape(image)[0:2])
+
         crop_img = np.array(letterbox_image(image, (self.model_image_size[0],self.model_image_size[1])))
         photo = np.array(crop_img,dtype = np.float64)
 
         # 图片预处理，归一化
         photo = Variable(torch.from_numpy(np.expand_dims(np.transpose(crop_img-MEANS,(2,0,1)),0)).cuda().type(torch.FloatTensor))
         preds = self.net(photo)
-
-
-        scale = torch.Tensor([self.model_image_size[1], self.model_image_size[0],
-                             self.model_image_size[1], self.model_image_size[0]])
-
+        
         top_conf = []
         top_label = []
         top_bboxes = []
@@ -109,7 +104,6 @@ class SSD(object):
         top_label = np.array(top_label)
         top_bboxes = np.array(top_bboxes)
         top_xmin, top_ymin, top_xmax, top_ymax = np.expand_dims(top_bboxes[:,0],-1),np.expand_dims(top_bboxes[:,1],-1),np.expand_dims(top_bboxes[:,2],-1),np.expand_dims(top_bboxes[:,3],-1)
-                
 
         # 去掉灰条
         boxes = ssd_correct_boxes(top_ymin,top_xmin,top_ymax,top_xmax,np.array([self.model_image_size[0],self.model_image_size[1]]),image_shape)
