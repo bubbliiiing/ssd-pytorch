@@ -15,7 +15,7 @@ MEANS = (104, 117, 123)
 class SSD(object):
     _defaults = {
         "model_path": 'model_data/ssd_weights.pth',
-        "classes_path": 'model_data/new_classes.txt',
+        "classes_path": 'model_data/voc_classes.txt',
         "model_image_size" : (300, 300, 3),
         "confidence": 0.5,
     }
