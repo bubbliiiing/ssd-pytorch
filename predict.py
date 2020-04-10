@@ -1,4 +1,3 @@
-from keras.layers import Input
 from ssd import SSD
 from PIL import Image
 
