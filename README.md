@@ -27,6 +27,11 @@ classes = ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat"
 7、在训练前需要修改model_data里面的voc_classes.txt文件，需要将classes改成你自己的classes。  
 8、修改train.py里面的NUM_CLASSES与需要训练的种类的个数相同。运行train.py即可开始训练。
 
+### mAP目标检测精度计算更新
+更新了get_gt_txt.py、get_dr_txt.py和get_map.py文件。  
+get_map文件克隆自https://github.com/Cartucho/mAP  
+具体mAP计算过程可参考：https://www.bilibili.com/video/BV1zE411u7Vw
+
 ### Reference
 https://github.com/pierluigiferrari/ssd_keras  
 https://github.com/kuhung/SSD_keras  
