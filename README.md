@@ -25,7 +25,7 @@ classes = ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat"
 ```
 6、就会生成对应的2007_train.txt，每一行对应其图片位置及其真实框的位置。  
 7、在训练前需要修改model_data里面的voc_classes.txt文件，需要将classes改成你自己的classes。  
-8、修改train.py里面的NUM_CLASSES与需要训练的种类的个数相同。运行train.py即可开始训练。
+8、修改utils/config.py里面的NUM_CLASSES与需要训练的种类的个数相同。运行train.py即可开始训练。
 
 ### mAP目标检测精度计算更新
 更新了get_gt_txt.py、get_dr_txt.py和get_map.py文件。  
