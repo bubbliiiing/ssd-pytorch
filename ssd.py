@@ -79,8 +79,8 @@ class SSD(object):
         crop_img = np.array(letterbox_image(image, (self.model_image_size[0],self.model_image_size[1])))
         photo = np.array(crop_img,dtype = np.float64)
         # 图片预处理，归一化
-        photo = Variable(torch.from_numpy(np.expand_dims(np.transpose(crop_img-MEANS,(2,0,1)),0)).type(torch.FloatTensor))
         with torch.no_grad():
+            photo = Variable(torch.from_numpy(np.expand_dims(np.transpose(crop_img-MEANS,(2,0,1)),0)).type(torch.FloatTensor))
             if self.cuda:
                 photo = photo.cuda()
             preds = self.net(photo)
