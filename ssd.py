@@ -17,6 +17,7 @@ class SSD(object):
         "classes_path": 'model_data/voc_classes.txt',
         "model_image_size" : (300, 300, 3),
         "confidence": 0.5,
+        "cuda": True,
     }
 
     @classmethod
@@ -27,7 +28,7 @@ class SSD(object):
             return "Unrecognized attribute name '" + n + "'"
 
     #---------------------------------------------------#
-    #   初始化RFB
+    #   初始化SSD
     #---------------------------------------------------#
     def __init__(self, **kwargs):
         self.__dict__.update(self._defaults)
@@ -51,14 +52,14 @@ class SSD(object):
 
         # 载入模型，如果原来的模型里已经包括了模型结构则直接载入。
         # 否则先构建模型再载入
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model = ssd.get_ssd("test",self.num_classes)
-        self.net = model
         model.load_state_dict(torch.load(self.model_path))
-
+        self.net = model.eval()
         self.net = torch.nn.DataParallel(self.net)
-        cudnn.benchmark = True
-        self.net = self.net.cuda()
+
+        if self.cuda:
+            cudnn.benchmark = True
+            self.net = self.net.cuda()
 
         print('{} model, anchors, and classes loaded.'.format(self.model_path))
         # 画框设置不同的颜色
@@ -77,10 +78,12 @@ class SSD(object):
 
         crop_img = np.array(letterbox_image(image, (self.model_image_size[0],self.model_image_size[1])))
         photo = np.array(crop_img,dtype = np.float64)
-
         # 图片预处理，归一化
-        photo = Variable(torch.from_numpy(np.expand_dims(np.transpose(crop_img-MEANS,(2,0,1)),0)).cuda().type(torch.FloatTensor))
-        preds = self.net(photo)
+        photo = Variable(torch.from_numpy(np.expand_dims(np.transpose(crop_img-MEANS,(2,0,1)),0)).type(torch.FloatTensor))
+        with torch.no_grad():
+            if self.cuda:
+                photo = photo.cuda()
+            preds = self.net(photo)
         
         top_conf = []
         top_label = []

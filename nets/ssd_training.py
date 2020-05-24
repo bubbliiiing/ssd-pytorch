@@ -40,24 +40,25 @@ class MultiBoxLoss(nn.Module):
         priors = priors[:loc_data.size(1), :]
         # 先验框的数量
         num_priors = (priors.size(0))
-        num_classes = self.num_classes
         # 创建一个tensor进行处理
         loc_t = torch.Tensor(num, num_priors, 4)
         conf_t = torch.LongTensor(num, num_priors)
-        for idx in range(num):
-            # 获得框
-            truths = targets[idx][:, :-1].data
-            # 获得标签
-            labels = targets[idx][:, -1].data
-            # 获得先验框
-            defaults = priors.data
-            # 找到标签对应的先验框
-            match(self.threshold, truths, defaults, self.variance, labels,
-                  loc_t, conf_t, idx)
+
         if self.use_gpu:
             loc_t = loc_t.cuda()
             conf_t = conf_t.cuda()
-            
+            priors = priors.cuda()
+
+        for idx in range(num):
+            # 获得框
+            truths = targets[idx][:, :-1]
+            # 获得标签
+            labels = targets[idx][:, -1]
+            # 获得先验框
+            defaults = priors
+            # 找到标签对应的先验框
+            match(self.threshold, truths, defaults, self.variance, labels,
+                  loc_t, conf_t, idx)
         # 转化成Variable
         loc_t = Variable(loc_t, requires_grad=False)
         conf_t = Variable(conf_t, requires_grad=False)

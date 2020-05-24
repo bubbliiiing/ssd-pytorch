@@ -18,12 +18,19 @@ def adjust_learning_rate(optimizer, lr, gamma, step):
 
 if __name__ == "__main__":
     Batch_size = 4
-    lr = 1e-5
-    Epoch = 50
+    # ------------------------------------#
+    #   先冻结一部分权重训练
+    #   后解冻全部权重训练
+    #   先大学习率
+    #   后小学习率
+    # ------------------------------------#
+    lr = 1e-4
+    freeze_lr = 1e-5
     Cuda = True
     Start_iter = 0
-    # 需要使用device来指定网络在GPU还是CPU运行
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    Freeze_epoch = 25
+    Epoch = 50
+
     model = get_ssd("train",Config["num_classes"])
 
     print('Loading weights into state dict...')
@@ -34,7 +41,7 @@ if __name__ == "__main__":
     model.load_state_dict(model_dict)
     print('Finished!')
 
-    net = model
+    net = model.train()
     if Cuda:
         net = torch.nn.DataParallel(model)
         cudnn.benchmark = True
@@ -51,45 +58,90 @@ if __name__ == "__main__":
     gen = Generator(Batch_size, lines,
                     (Config["min_dim"], Config["min_dim"]), Config["num_classes"]).generate()
 
-
-    optimizer = optim.Adam(net.parameters(), lr=lr)
     criterion = MultiBoxLoss(Config['num_classes'], 0.5, True, 0, True, 3, 0.5,
                              False, Cuda)
-
-    net.train()
-
-
     epoch_size = num_train // Batch_size
-    for epoch in range(Start_iter,Epoch):
-        if epoch%10==0:
-            adjust_learning_rate(optimizer,lr,0.95,epoch)
-        loc_loss = 0
-        conf_loss = 0
-        for iteration in range(epoch_size):
-            images, targets = next(gen)
-            with torch.no_grad():
-                if Cuda:
-                    images = Variable(torch.from_numpy(images).cuda().type(torch.FloatTensor))
-                    targets = [Variable(torch.from_numpy(ann).cuda().type(torch.FloatTensor)) for ann in targets]
-                else:
-                    images = Variable(torch.from_numpy(images).type(torch.FloatTensor))
-                    targets = [Variable(torch.from_numpy(ann).type(torch.FloatTensor)) for ann in targets]
-            # 前向传播
-            out = net(images)
-            # 清零梯度
-            optimizer.zero_grad()
-            # 计算loss
-            loss_l, loss_c = criterion(out, targets)
-            loss = loss_l + loss_c
-            # 反向传播
-            loss.backward()
-            optimizer.step()
-            # 加上
-            loc_loss += loss_l.item()
-            conf_loss += loss_c.item()
 
-            print('\nEpoch:'+ str(epoch+1) + '/' + str(Epoch))
-            print('iter:' + str(iteration) + '/' + str(epoch_size) + ' || Loc_Loss: %.4f || Conf_Loss: %.4f ||' % (loc_loss/(iteration+1),conf_loss/(iteration+1)), end=' ')
+    if True:
+        # ------------------------------------#
+        #   冻结一定部分训练
+        # ------------------------------------#
+        for param in model.vgg.parameters():
+            param.requires_grad = False
 
-        print('Saving state, iter:', str(epoch+1))
-        torch.save(model.state_dict(), 'logs/Epoch%d-Loc%.4f-Conf%.4f.pth'%((epoch+1),loc_loss/(iteration+1),conf_loss/(iteration+1)))
+        optimizer = optim.Adam(net.parameters(), lr=lr)
+        for epoch in range(Start_iter,Freeze_epoch):
+            if epoch%10==0:
+                adjust_learning_rate(optimizer,lr,0.95,epoch)
+            loc_loss = 0
+            conf_loss = 0
+            for iteration in range(epoch_size):
+                images, targets = next(gen)
+                with torch.no_grad():
+                    if Cuda:
+                        images = Variable(torch.from_numpy(images).type(torch.FloatTensor)).cuda()
+                        targets = [Variable(torch.from_numpy(ann).type(torch.FloatTensor)).cuda() for ann in targets]
+                    else:
+                        images = Variable(torch.from_numpy(images).type(torch.FloatTensor))
+                        targets = [Variable(torch.from_numpy(ann).type(torch.FloatTensor)) for ann in targets]
+                # 前向传播
+                out = net(images)
+                # 清零梯度
+                optimizer.zero_grad()
+                # 计算loss
+                loss_l, loss_c = criterion(out, targets)
+                loss = loss_l + loss_c
+                # 反向传播
+                loss.backward()
+                optimizer.step()
+                # 加上
+                loc_loss += loss_l.item()
+                conf_loss += loss_c.item()
+
+                print('\nEpoch:'+ str(epoch+1) + '/' + str(Freeze_epoch))
+                print('iter:' + str(iteration) + '/' + str(epoch_size) + ' || Loc_Loss: %.4f || Conf_Loss: %.4f ||' % (loc_loss/(iteration+1),conf_loss/(iteration+1)), end=' ')
+
+            print('Saving state, iter:', str(epoch+1))
+            torch.save(model.state_dict(), 'logs/Epoch%d-Loc%.4f-Conf%.4f.pth'%((epoch+1),loc_loss/(iteration+1),conf_loss/(iteration+1)))
+
+    if True:
+        # ------------------------------------#
+        #   全部解冻训练
+        # ------------------------------------#
+        for param in model.vgg.parameters():
+            param.requires_grad = True
+
+        optimizer = optim.Adam(net.parameters(), lr=freeze_lr)
+        for epoch in range(Freeze_epoch,Epoch):
+            if epoch%10==0:
+                adjust_learning_rate(optimizer,freeze_lr,0.95,epoch)
+            loc_loss = 0
+            conf_loss = 0
+            for iteration in range(epoch_size):
+                images, targets = next(gen)
+                with torch.no_grad():
+                    if Cuda:
+                        images = Variable(torch.from_numpy(images).type(torch.FloatTensor)).cuda()
+                        targets = [Variable(torch.from_numpy(ann).type(torch.FloatTensor)).cuda() for ann in targets]
+                    else:
+                        images = Variable(torch.from_numpy(images).type(torch.FloatTensor))
+                        targets = [Variable(torch.from_numpy(ann).type(torch.FloatTensor)) for ann in targets]
+                # 前向传播
+                out = net(images)
+                # 清零梯度
+                optimizer.zero_grad()
+                # 计算loss
+                loss_l, loss_c = criterion(out, targets)
+                loss = loss_l + loss_c
+                # 反向传播
+                loss.backward()
+                optimizer.step()
+                # 加上
+                loc_loss += loss_l.item()
+                conf_loss += loss_c.item()
+
+                print('\nEpoch:'+ str(epoch+1) + '/' + str(Epoch))
+                print('iter:' + str(iteration) + '/' + str(epoch_size) + ' || Loc_Loss: %.4f || Conf_Loss: %.4f ||' % (loc_loss/(iteration+1),conf_loss/(iteration+1)), end=' ')
+
+            print('Saving state, iter:', str(epoch+1))
+            torch.save(model.state_dict(), 'logs/Epoch%d-Loc%.4f-Conf%.4f.pth'%((epoch+1),loc_loss/(iteration+1),conf_loss/(iteration+1)))
