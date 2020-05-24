@@ -55,9 +55,9 @@ class SSD(object):
         model = ssd.get_ssd("test",self.num_classes)
         model.load_state_dict(torch.load(self.model_path))
         self.net = model.eval()
-        self.net = torch.nn.DataParallel(self.net)
 
         if self.cuda:
+            self.net = torch.nn.DataParallel(self.net)
             cudnn.benchmark = True
             self.net = self.net.cuda()
 
