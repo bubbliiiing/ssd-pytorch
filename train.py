@@ -72,7 +72,7 @@ if __name__ == "__main__":
         optimizer = optim.Adam(net.parameters(), lr=lr)
         for epoch in range(Start_iter,Freeze_epoch):
             if epoch%10==0:
-                adjust_learning_rate(optimizer,lr,0.95,epoch)
+                adjust_learning_rate(optimizer,lr,0.9,epoch)
             loc_loss = 0
             conf_loss = 0
             for iteration in range(epoch_size):
@@ -114,7 +114,7 @@ if __name__ == "__main__":
         optimizer = optim.Adam(net.parameters(), lr=freeze_lr)
         for epoch in range(Freeze_epoch,Epoch):
             if epoch%10==0:
-                adjust_learning_rate(optimizer,freeze_lr,0.95,epoch)
+                adjust_learning_rate(optimizer,freeze_lr,0.9,epoch)
             loc_loss = 0
             conf_loss = 0
             for iteration in range(epoch_size):
