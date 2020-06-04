@@ -1,7 +1,5 @@
 from random import shuffle
 import numpy as np
-from scipy.misc import imread
-from scipy.misc import imresize
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
