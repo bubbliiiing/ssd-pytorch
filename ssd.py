@@ -50,10 +50,11 @@ class SSD(object):
         # 计算总的种类
         self.num_classes = len(self.class_names) + 1
 
-        # 载入模型，如果原来的模型里已经包括了模型结构则直接载入。
-        # 否则先构建模型再载入
+        # 载入模型
+        print('Loading weights into state dict...')
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model = ssd.get_ssd("test",self.num_classes)
-        model.load_state_dict(torch.load(self.model_path))
+        model.load_state_dict(torch.load(self.model_path, map_location=device))
         self.net = model.eval()
 
         if self.cuda:
