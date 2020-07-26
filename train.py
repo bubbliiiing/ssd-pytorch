@@ -29,8 +29,8 @@ if __name__ == "__main__":
     #   先大学习率
     #   后小学习率
     # ------------------------------------#
-    lr = 1e-4
-    freeze_lr = 1e-5
+    lr = 5e-4
+    freeze_lr = 1e-4
     Cuda = True
 
     Start_iter = 0
