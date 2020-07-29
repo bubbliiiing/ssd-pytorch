@@ -104,8 +104,9 @@ class SSDDataset(Dataset):
         n = self.train_batches
         temp_index = index % n
         while True:
-            img, y = self.get_random_data(lines[temp_index], self.image_size[0:2])
+            img, y = self.get_random_data(lines[index], self.image_size[0:2])
             if len(y)==0:
+                index = (index + 1) % n
                 continue
             boxes = np.array(y[:,:4],dtype=np.float32)
             boxes[:,0] = boxes[:,0]/self.image_size[1]
@@ -114,9 +115,9 @@ class SSDDataset(Dataset):
             boxes[:,3] = boxes[:,3]/self.image_size[0]
             boxes = np.maximum(np.minimum(boxes,1),0)
             if ((boxes[:,3]-boxes[:,1])<=0).any() and ((boxes[:,2]-boxes[:,0])<=0).any():
+                index = (index + 1) % n
                 continue
             y = np.concatenate([boxes,y[:,-1:]],axis=-1)
-            temp_index = (temp_index + 1) % n
             break
             
         img = np.array(img, dtype=np.float32)
