@@ -102,9 +102,9 @@ class SSDDataset(Dataset):
             shuffle(self.train_lines)
         lines = self.train_lines
         n = self.train_batches
-        index = index % n
+        temp_index = index % n
         while True:
-            img, y = self.get_random_data(lines[index], self.image_size[0:2])
+            img, y = self.get_random_data(lines[temp_index], self.image_size[0:2])
             if len(y)==0:
                 continue
             boxes = np.array(y[:,:4],dtype=np.float32)
@@ -116,7 +116,7 @@ class SSDDataset(Dataset):
             if ((boxes[:,3]-boxes[:,1])<=0).any() and ((boxes[:,2]-boxes[:,0])<=0).any():
                 continue
             y = np.concatenate([boxes,y[:,-1:]],axis=-1)
-            index = (index + 1) % n
+            temp_index = (temp_index + 1) % n
             break
             
         img = np.array(img, dtype=np.float32)
