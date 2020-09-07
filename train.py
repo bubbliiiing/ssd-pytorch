@@ -84,7 +84,7 @@ if __name__ == "__main__":
             param.requires_grad = False
 
         optimizer = optim.Adam(net.parameters(), lr=lr)
-        lr_scheduler = optim.lr_scheduler.StepLR(optimizer,step_size=1,gamma=0.9)
+        lr_scheduler = optim.lr_scheduler.StepLR(optimizer,step_size=1,gamma=0.95)
         for epoch in range(Start_iter,Freeze_epoch):
             with tqdm(total=epoch_size,desc=f'Epoch {epoch + 1}/{Freeze_epoch}',postfix=dict,mininterval=0.3) as pbar:
                 loc_loss = 0
@@ -131,7 +131,7 @@ if __name__ == "__main__":
             param.requires_grad = True
 
         optimizer = optim.Adam(net.parameters(), lr=freeze_lr)
-        lr_scheduler = optim.lr_scheduler.StepLR(optimizer,step_size=1,gamma=0.9)
+        lr_scheduler = optim.lr_scheduler.StepLR(optimizer,step_size=1,gamma=0.95)
         for epoch in range(Freeze_epoch,Epoch):
             with tqdm(total=epoch_size,desc=f'Epoch {epoch + 1}/{Freeze_epoch}',postfix=dict,mininterval=0.3) as pbar:
                 loc_loss = 0
