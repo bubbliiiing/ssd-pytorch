@@ -9,6 +9,8 @@ from utils.config import Config
 from utils.box_utils import letterbox_image,ssd_correct_boxes
 from PIL import Image,ImageFont, ImageDraw
 from torch.autograd import Variable
+import warnings
+warnings.filterwarnings("ignore")
 
 MEANS = (104, 117, 123)
 #--------------------------------------------#
