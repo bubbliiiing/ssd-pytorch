@@ -2,16 +2,18 @@ from ssd import SSD
 from PIL import Image
 from utils.box_utils import letterbox_image,ssd_correct_boxes
 from torch.autograd import Variable
+from tqdm import tqdm
 import torch
 import numpy as np
 import os
+
 MEANS = (104, 117, 123)
 class mAP_SSD(SSD):
     #---------------------------------------------------#
     #   检测图片
     #---------------------------------------------------#
     def detect_image(self,image_id,image):
-        self.confidence = 0.05
+        self.confidence = 0.001
         f = open("./input/detection-results/"+image_id+".txt","w") 
         image_shape = np.array(np.shape(image)[0:2])
 
@@ -70,12 +72,11 @@ if not os.path.exists("./input/images-optional"):
     os.makedirs("./input/images-optional")
 
 
-for image_id in image_ids:
+for image_id in tqdm(image_ids):
     image_path = "./VOCdevkit/VOC2007/JPEGImages/"+image_id+".jpg"
     image = Image.open(image_path)
-    image.save("./input/images-optional/"+image_id+".jpg")
+    # 开启后在之后计算mAP可以可视化
+    # image.save("./input/images-optional/"+image_id+".jpg")
     ssd.detect_image(image_id,image)
-    print(image_id," done!")
     
-
 print("Conversion completed!")
