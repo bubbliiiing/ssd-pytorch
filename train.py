@@ -30,8 +30,8 @@ if __name__ == "__main__":
     Cuda = True
 
     Start_iter = 0
-    Freeze_epoch = 25
-    Epoch = 50
+    Freeze_epoch = 50
+    Epoch = 100
 
     Batch_size = 4
     #-------------------------------#
