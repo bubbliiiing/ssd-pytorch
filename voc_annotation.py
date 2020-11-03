@@ -11,7 +11,10 @@ def convert_annotation(year, image_id, list_file):
     root = tree.getroot()
 
     for obj in root.iter('object'):
-        difficult = obj.find('difficult').text
+        difficult = 0 
+        if obj.find('difficult')!=None:
+            difficult = obj.find('difficult').text
+            
         cls = obj.find('name').text
         if cls not in classes or int(difficult)==1:
             continue
