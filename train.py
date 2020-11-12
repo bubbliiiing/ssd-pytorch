@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
     if Use_Data_Loader:
         train_dataset = SSDDataset(lines[:num_train], (Config["min_dim"], Config["min_dim"]))
-        gen = DataLoader(train_dataset, batch_size=Batch_size, num_workers=8, pin_memory=True,
+        gen = DataLoader(train_dataset, shuffle=True, batch_size=Batch_size, num_workers=8, pin_memory=True,
                                 drop_last=True, collate_fn=ssd_dataset_collate)
     else:
         gen = Generator(Batch_size, lines,
