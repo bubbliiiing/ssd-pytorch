@@ -1,4 +1,5 @@
 import os
+import time
 
 import numpy as np
 import torch
@@ -16,6 +17,7 @@ from utils.box_utils import letterbox_image, ssd_correct_boxes
 
 video.py里面测试的FPS会低于该FPS，因为摄像头的读取频率有限，而且处理过程包含了前处理和绘图部分。
 '''
+MEANS = (104, 117, 123)
 class FPS_SSD(SSD):
     def get_FPS(self, image, test_interval):
         # 调整图片使其符合输入要求
