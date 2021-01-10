@@ -1,8 +1,10 @@
-import numpy as np
-from utils.config import Config
-from math import sqrt as sqrt
-from itertools import product as product
+from itertools import product
+from math import sqrt
+
 import matplotlib.pyplot as plt
+import numpy as np
+
+from utils.config import Config
 
 mean = []
 for k, f in enumerate(Config["feature_maps"]):

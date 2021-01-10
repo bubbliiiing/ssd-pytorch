@@ -22,7 +22,7 @@ class FPS_SSD(SSD):
     def get_FPS(self, image, test_interval):
         # 调整图片使其符合输入要求
         image_shape = np.array(np.shape(image)[0:2])
-        crop_img = np.array(letterbox_image(image, (self.model_image_size[0],self.model_image_size[1])))
+        crop_img = np.array(letterbox_image(image, (self.input_shape[1],self.input_shape[0])))
         photo = np.array(crop_img,dtype = np.float64)
         # 图片预处理，归一化
         with torch.no_grad():
@@ -51,11 +51,10 @@ class FPS_SSD(SSD):
                 top_bboxes = np.array(top_bboxes)
                 top_xmin, top_ymin, top_xmax, top_ymax = np.expand_dims(top_bboxes[:,0],-1),np.expand_dims(top_bboxes[:,1],-1),np.expand_dims(top_bboxes[:,2],-1),np.expand_dims(top_bboxes[:,3],-1)
                 # 去掉灰条
-                boxes = ssd_correct_boxes(top_ymin,top_xmin,top_ymax,top_xmax,np.array([self.model_image_size[0],self.model_image_size[1]]),image_shape)
+                boxes = ssd_correct_boxes(top_ymin,top_xmin,top_ymax,top_xmax,np.array([self.input_shape[0],self.input_shape[1]]),image_shape)
 
         t1 = time.time()
         for _ in range(test_interval):
-            # 图片预处理，归一化
             with torch.no_grad():
                 preds = self.net(photo)
                 top_conf = []
@@ -79,7 +78,7 @@ class FPS_SSD(SSD):
                     top_bboxes = np.array(top_bboxes)
                     top_xmin, top_ymin, top_xmax, top_ymax = np.expand_dims(top_bboxes[:,0],-1),np.expand_dims(top_bboxes[:,1],-1),np.expand_dims(top_bboxes[:,2],-1),np.expand_dims(top_bboxes[:,3],-1)
                     # 去掉灰条
-                    boxes = ssd_correct_boxes(top_ymin,top_xmin,top_ymax,top_xmax,np.array([self.model_image_size[0],self.model_image_size[1]]),image_shape)
+                    boxes = ssd_correct_boxes(top_ymin,top_xmin,top_ymax,top_xmax,np.array([self.input_shape[0],self.input_shape[1]]),image_shape)
 
         t2 = time.time()
         tact_time = (t2 - t1) / test_interval

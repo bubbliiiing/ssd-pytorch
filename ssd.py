@@ -1,29 +1,36 @@
-import cv2
-import numpy as np
 import colorsys
 import os
-import torch
-from nets import ssd
-import torch.backends.cudnn as cudnn
-from utils.config import Config
-from utils.box_utils import letterbox_image,ssd_correct_boxes
-from PIL import Image,ImageFont, ImageDraw
-from torch.autograd import Variable
 import warnings
+
+import cv2
+import numpy as np
+import torch
+import torch.backends.cudnn as cudnn
+from PIL import Image, ImageDraw, ImageFont
+from torch.autograd import Variable
+
+from nets import ssd
+from utils.box_utils import letterbox_image, ssd_correct_boxes
+from utils.config import Config
+
 warnings.filterwarnings("ignore")
 
 MEANS = (104, 117, 123)
 #--------------------------------------------#
 #   使用自己训练好的模型预测需要修改2个参数
 #   model_path和classes_path都需要修改！
+#   如果出现shape不匹配
+#   一定要注意训练时的config里面的num_classes、
+#   model_path和classes_path参数的修改
 #--------------------------------------------#
 class SSD(object):
     _defaults = {
-        "model_path": 'model_data/ssd_weights.pth',
-        "classes_path": 'model_data/voc_classes.txt',
-        "model_image_size" : (300, 300, 3),
-        "confidence": 0.5,
-        "cuda": True,
+        "model_path"    : 'model_data/ssd_weights.pth',
+        "classes_path"  : 'model_data/voc_classes.txt',
+        "input_shape"   : (300, 300, 3),
+        "confidence"    : 0.5,
+        "nms_iou"       : 0.45,
+        "cuda"          : True,
     }
 
     @classmethod
@@ -57,10 +64,13 @@ class SSD(object):
         self.num_classes = len(self.class_names) + 1
 
         # 载入模型
+        model = ssd.get_ssd("test", self.num_classes, self.confidence, self.nms_iou)
+
+        # 载入权重
         print('Loading weights into state dict...')
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model = ssd.get_ssd("test",self.num_classes)
         model.load_state_dict(torch.load(self.model_path, map_location=device))
+
         self.net = model.eval()
 
         if self.cuda:
@@ -83,43 +93,64 @@ class SSD(object):
     def detect_image(self, image):
         image_shape = np.array(np.shape(image)[0:2])
 
-        crop_img = np.array(letterbox_image(image, (self.model_image_size[0],self.model_image_size[1])))
-        photo = np.array(crop_img,dtype = np.float64)
-        # 图片预处理，归一化
+        #---------------------------------------------------#
+        #   不失真的resize，给图像周围增加灰条
+        #---------------------------------------------------#
+        crop_img = np.array(letterbox_image(image, (self.input_shape[1], self.input_shape[0])))
+
         with torch.no_grad():
-            photo = Variable(torch.from_numpy(np.expand_dims(np.transpose(crop_img-MEANS,(2,0,1)),0)).type(torch.FloatTensor))
+            #---------------------------------------------------#
+            #   图片预处理，归一化
+            #---------------------------------------------------#
+            photo = Variable(torch.from_numpy(np.expand_dims(np.transpose(crop_img - MEANS, (2,0,1)), 0)).type(torch.FloatTensor))
             if self.cuda:
                 photo = photo.cuda()
+                
+            #---------------------------------------------------#
+            #   传入网络进行预测
+            #---------------------------------------------------#
             preds = self.net(photo)
         
-        top_conf = []
-        top_label = []
-        top_bboxes = []
-        for i in range(preds.size(1)):
-            j = 0
-            while preds[0, i, j, 0] >= self.confidence:
-                score = preds[0, i, j, 0]
-                label_name = self.class_names[i-1]
-                pt = (preds[0, i, j, 1:]).detach().numpy()
-                coords = [pt[0], pt[1], pt[2], pt[3]]
-                top_conf.append(score)
-                top_label.append(label_name)
-                top_bboxes.append(coords)
-                j = j + 1
-        # 将预测结果进行解码
+            top_conf = []
+            top_label = []
+            top_bboxes = []
+            #---------------------------------------------------#
+            #   preds的shape为 1, num_classes, top_k, 5
+            #---------------------------------------------------#
+            for i in range(preds.size(1)):
+                j = 0
+                while preds[0, i, j, 0] >= self.confidence:
+                    #---------------------------------------------------#
+                    #   score为当前预测框的得分
+                    #   label_name为预测框的种类
+                    #---------------------------------------------------#
+                    score = preds[0, i, j, 0]
+                    label_name = self.class_names[i-1]
+                    #---------------------------------------------------#
+                    #   pt的shape为4, 当前预测框的左上角右下角
+                    #---------------------------------------------------#
+                    pt = (preds[0, i, j, 1:]).detach().numpy()
+                    coords = [pt[0], pt[1], pt[2], pt[3]]
+                    top_conf.append(score)
+                    top_label.append(label_name)
+                    top_bboxes.append(coords)
+                    j = j + 1
+
+        # 如果不存在满足门限的预测框，直接返回原图
         if len(top_conf)<=0:
             return image
+        
         top_conf = np.array(top_conf)
         top_label = np.array(top_label)
         top_bboxes = np.array(top_bboxes)
-        top_xmin, top_ymin, top_xmax, top_ymax = np.expand_dims(top_bboxes[:,0],-1),np.expand_dims(top_bboxes[:,1],-1),np.expand_dims(top_bboxes[:,2],-1),np.expand_dims(top_bboxes[:,3],-1)
+        top_xmin, top_ymin, top_xmax, top_ymax = np.expand_dims(top_bboxes[:,0], -1),np.expand_dims(top_bboxes[:,1], -1),np.expand_dims(top_bboxes[:,2], -1),np.expand_dims(top_bboxes[:,3], -1)
 
         # 去掉灰条
-        boxes = ssd_correct_boxes(top_ymin,top_xmin,top_ymax,top_xmax,np.array([self.model_image_size[0],self.model_image_size[1]]),image_shape)
+        boxes = ssd_correct_boxes(top_ymin, top_xmin, top_ymax, top_xmax, np.array([self.input_shape[0],self.input_shape[1]]), image_shape)
 
         font = ImageFont.truetype(font='model_data/simhei.ttf',size=np.floor(3e-2 * np.shape(image)[1] + 0.5).astype('int32'))
 
-        thickness = (np.shape(image)[0] + np.shape(image)[1]) // self.model_image_size[0]
+        thickness = (np.shape(image)[0] + np.shape(image)[1]) // self.input_shape[0]
 
         for i, c in enumerate(top_label):
             predicted_class = c
@@ -141,7 +172,7 @@ class SSD(object):
             draw = ImageDraw.Draw(image)
             label_size = draw.textsize(label, font)
             label = label.encode('utf-8')
-            print(label)
+            print(label, top, left, bottom, right)
             
             if top - label_size[1] >= 0:
                 text_origin = np.array([left, top - label_size[1]])

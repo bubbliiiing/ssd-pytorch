@@ -1,24 +1,26 @@
+import math
 from random import shuffle
+
+import cv2
 import numpy as np
 import torch
 import torch.nn as nn
-import math
-import cv2
 import torch.nn.functional as F
+from matplotlib.colors import hsv_to_rgb, rgb_to_hsv
 from PIL import Image
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Dataset
-from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
 
 MEANS = (104, 117, 123)
 class SSDDataset(Dataset):
-    def __init__(self, train_lines, image_size):
+    def __init__(self, train_lines, image_size, is_val):
         super(SSDDataset, self).__init__()
 
         self.train_lines = train_lines
         self.train_batches = len(train_lines)
         self.image_size = image_size
+        self.is_val = is_val
 
     def __len__(self):
         return self.train_batches
@@ -26,7 +28,7 @@ class SSDDataset(Dataset):
     def rand(self, a=0, b=1):
         return np.random.rand() * (b - a) + a
 
-    def get_random_data(self, annotation_line, input_shape, jitter=.3, hue=.1, sat=1.5, val=1.5):
+    def get_random_data(self, annotation_line, input_shape, jitter=.3, hue=.1, sat=1.5, val=1.5, random=True):
         """实时数据增强的随机预处理"""
         line = annotation_line.split()
         image = Image.open(line[0])
@@ -34,6 +36,36 @@ class SSDDataset(Dataset):
         h, w = input_shape
         box = np.array([np.array(list(map(int, box.split(',')))) for box in line[1:]])
 
+        if not random:
+            # resize image
+            scale = min(w/iw, h/ih)
+            nw = int(iw*scale)
+            nh = int(ih*scale)
+            dx = (w-nw)//2
+            dy = (h-nh)//2
+
+            image = image.resize((nw,nh), Image.BICUBIC)
+            new_image = Image.new('RGB', (w,h), (128,128,128))
+            new_image.paste(image, (dx, dy))
+            image_data = np.array(new_image, np.float32)
+
+            # correct boxes
+            box_data = np.zeros((len(box),5))
+            if len(box)>0:
+                np.random.shuffle(box)
+                box[:, [0,2]] = box[:, [0,2]]*nw/iw + dx
+                box[:, [1,3]] = box[:, [1,3]]*nh/ih + dy
+                box[:, 0:2][box[:, 0:2]<0] = 0
+                box[:, 2][box[:, 2]>w] = w
+                box[:, 3][box[:, 3]>h] = h
+                box_w = box[:, 2] - box[:, 0]
+                box_h = box[:, 3] - box[:, 1]
+                box = box[np.logical_and(box_w>1, box_h>1)]
+                box_data = np.zeros((len(box),5))
+                box_data[:len(box)] = box
+
+            return image_data, box_data
+            
         # 调整图片大小
         new_ar = w / h * self.rand(1 - jitter, 1 + jitter) / self.rand(1 - jitter, 1 + jitter)
         scale = self.rand(.5, 1.5)
@@ -89,38 +121,30 @@ class SSDDataset(Dataset):
             box = box[np.logical_and(box_w > 1, box_h > 1)]  # 保留有效框
             box_data = np.zeros((len(box), 5))
             box_data[:len(box)] = box
-        if len(box) == 0:
-            return image_data, []
 
-        if (box_data[:, :4] > 0).any():
-            return image_data, box_data
-        else:
-            return image_data, []
+        return image_data, box_data
 
     def __getitem__(self, index):
         lines = self.train_lines
-        n = self.train_batches
-        temp_index = index % n
-        while True:
+
+        if self.is_val:
+            img, y = self.get_random_data(lines[index], self.image_size[0:2], random=False)
+        else:
             img, y = self.get_random_data(lines[index], self.image_size[0:2])
-            if len(y)==0:
-                index = (index + 1) % n
-                continue
-            boxes = np.array(y[:,:4],dtype=np.float32)
-            boxes[:,0] = boxes[:,0]/self.image_size[1]
-            boxes[:,1] = boxes[:,1]/self.image_size[0]
-            boxes[:,2] = boxes[:,2]/self.image_size[1]
-            boxes[:,3] = boxes[:,3]/self.image_size[0]
-            boxes = np.maximum(np.minimum(boxes,1),0)
-            if ((boxes[:,3]-boxes[:,1])<=0).any() and ((boxes[:,2]-boxes[:,0])<=0).any():
-                index = (index + 1) % n
-                continue
-            y = np.concatenate([boxes,y[:,-1:]],axis=-1)
-            break
+
+        boxes = np.array(y[:,:4],dtype=np.float32)
+        boxes[:,0] = boxes[:,0]/self.image_size[1]
+        boxes[:,1] = boxes[:,1]/self.image_size[0]
+        boxes[:,2] = boxes[:,2]/self.image_size[1]
+        boxes[:,3] = boxes[:,3]/self.image_size[0]
+        boxes = np.maximum(np.minimum(boxes,1),0)
+
+        y = np.concatenate([boxes, y[:,-1:]],axis=-1)
             
-        img = np.array(img, dtype=np.float32)
-        tmp_inp = np.transpose(img-MEANS,(2,0,1))
-        tmp_targets = np.array(y, dtype=np.float32)
+        img = np.array(img, dtype = np.float32)
+        tmp_inp = np.transpose(img - MEANS, (2,0,1))
+        tmp_targets = np.array(y, dtype = np.float32)
+
         return tmp_inp, tmp_targets
 
 
@@ -132,6 +156,5 @@ def ssd_dataset_collate(batch):
         images.append(img)
         bboxes.append(box)
     images = np.array(images)
-    bboxes = np.array(bboxes)
     return images, bboxes
 
