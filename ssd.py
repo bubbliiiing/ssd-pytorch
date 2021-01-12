@@ -150,7 +150,7 @@ class SSD(object):
 
         font = ImageFont.truetype(font='model_data/simhei.ttf',size=np.floor(3e-2 * np.shape(image)[1] + 0.5).astype('int32'))
 
-        thickness = (np.shape(image)[0] + np.shape(image)[1]) // self.input_shape[0]
+        thickness = max((np.shape(image)[0] + np.shape(image)[1]) // self.input_shape[0], 1)
 
         for i, c in enumerate(top_label):
             predicted_class = c
