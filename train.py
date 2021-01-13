@@ -184,11 +184,11 @@ if __name__ == "__main__":
         lr_scheduler = optim.lr_scheduler.StepLR(optimizer,step_size=1,gamma=0.95)
 
         if Use_Data_Loader:
-            train_dataset = SSDDataset(lines[:num_train], (Config["min_dim"], Config["min_dim"]), True)
+            train_dataset = SSDDataset(lines[:num_train], (Config["min_dim"], Config["min_dim"]), False)
             gen = DataLoader(train_dataset, shuffle=True, batch_size=Batch_size, num_workers=4, pin_memory=True,
                                     drop_last=True, collate_fn=ssd_dataset_collate)
 
-            val_dataset = SSDDataset(lines[num_train:], (Config["min_dim"], Config["min_dim"]), False)
+            val_dataset = SSDDataset(lines[num_train:], (Config["min_dim"], Config["min_dim"]), True)
             gen_val = DataLoader(val_dataset, shuffle=True, batch_size=Batch_size, num_workers=4, pin_memory=True,
                                     drop_last=True, collate_fn=ssd_dataset_collate)
         else:
@@ -215,11 +215,11 @@ if __name__ == "__main__":
         lr_scheduler = optim.lr_scheduler.StepLR(optimizer,step_size=1,gamma=0.95)
 
         if Use_Data_Loader:
-            train_dataset = SSDDataset(lines[:num_train], (Config["min_dim"], Config["min_dim"]), True)
+            train_dataset = SSDDataset(lines[:num_train], (Config["min_dim"], Config["min_dim"]), False)
             gen = DataLoader(train_dataset, shuffle=True, batch_size=Batch_size, num_workers=4, pin_memory=True,
                                     drop_last=True, collate_fn=ssd_dataset_collate)
 
-            val_dataset = SSDDataset(lines[num_train:], (Config["min_dim"], Config["min_dim"]), False)
+            val_dataset = SSDDataset(lines[num_train:], (Config["min_dim"], Config["min_dim"]), True)
             gen_val = DataLoader(val_dataset, shuffle=True, batch_size=Batch_size, num_workers=4, pin_memory=True,
                                     drop_last=True, collate_fn=ssd_dataset_collate)
         else:
