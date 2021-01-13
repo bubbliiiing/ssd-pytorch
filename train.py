@@ -171,7 +171,7 @@ if __name__ == "__main__":
     #   也可以在训练初期防止权值被破坏。
     #   Init_Epoch为起始世代
     #   Freeze_Epoch为冻结训练的世代
-    #   Epoch总训练世代
+    #   Unfreeze_Epoch总训练世代
     #   提示OOM或者显存不足请调小Batch_size
     #------------------------------------------------------#
     if True:
