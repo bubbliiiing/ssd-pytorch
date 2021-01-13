@@ -192,8 +192,8 @@ class Generator(object):
             return image_data, box_data
             
         # 调整图片大小
-        new_ar = w / h * self.rand(1 - jitter, 1 + jitter) / self.rand(1 - jitter, 1 + jitter)
-        scale = self.rand(.5, 1.5)
+        new_ar = w / h * rand(1 - jitter, 1 + jitter) / rand(1 - jitter, 1 + jitter)
+        scale = rand(.5, 1.5)
         if new_ar < 1:
             nh = int(scale * h)
             nw = int(nh * new_ar)
@@ -203,22 +203,22 @@ class Generator(object):
         image = image.resize((nw, nh), Image.BICUBIC)
 
         # 放置图片
-        dx = int(self.rand(0, w - nw))
-        dy = int(self.rand(0, h - nh))
+        dx = int(rand(0, w - nw))
+        dy = int(rand(0, h - nh))
         new_image = Image.new('RGB', (w, h),
                               (np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)))
         new_image.paste(image, (dx, dy))
         image = new_image
 
         # 是否翻转图片
-        flip = self.rand() < .5
+        flip = rand() < .5
         if flip:
             image = image.transpose(Image.FLIP_LEFT_RIGHT)
 
         # 色域变换
-        hue = self.rand(-hue, hue)
-        sat = self.rand(1, sat) if self.rand() < .5 else 1 / self.rand(1, sat)
-        val = self.rand(1, val) if self.rand() < .5 else 1 / self.rand(1, val)
+        hue = rand(-hue, hue)
+        sat = rand(1, sat) if rand() < .5 else 1 / rand(1, sat)
+        val = rand(1, val) if rand() < .5 else 1 / rand(1, val)
         x = cv2.cvtColor(np.array(image,np.float32)/255, cv2.COLOR_RGB2HSV)
         x[..., 0] += hue*360
         x[..., 0][x[..., 0]>1] -= 1
