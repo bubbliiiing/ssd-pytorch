@@ -227,7 +227,7 @@ if __name__ == "__main__":
             gen_val = Generator(Batch_size, lines[num_train:], (Config["min_dim"], Config["min_dim"]), Config["num_classes"]).generate(False)
 
         for param in model.vgg.parameters():
-            param.requires_grad = False
+            param.requires_grad = True
 
         epoch_size = num_train // Batch_size
         epoch_size_val = num_val // Batch_size
