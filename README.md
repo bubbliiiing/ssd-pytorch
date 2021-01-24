@@ -47,7 +47,7 @@ img/street.jpg
 ```
 4. 利用video.py可进行摄像头检测。  
 
-### 训练步骤
+## 训练步骤
 1. 本文使用VOC格式进行训练。  
 2. 训练前将标签文件放在VOCdevkit文件夹下的VOC2007文件夹下的Annotation中。  
 3. 训练前将图片文件放在VOCdevkit文件夹下的VOC2007文件夹下的JPEGImages中。  
