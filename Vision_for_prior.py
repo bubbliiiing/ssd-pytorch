@@ -61,8 +61,8 @@ box_heights = mean[step_start:step_end,3]
 prior_boxes = np.zeros_like(mean[step_start:step_end,:])
 prior_boxes[:,0] = mean[step_start:step_end,0]
 prior_boxes[:,1] = mean[step_start:step_end,1]
-prior_boxes[:,0] = mean[step_start:step_end,0]
-prior_boxes[:,1] = mean[step_start:step_end,1]
+prior_boxes[:, 2] = mean[step_start:step_end, 2]
+prior_boxes[:, 3] = mean[step_start:step_end, 3]
 
 
 # 获得先验框的左上角和右下角
