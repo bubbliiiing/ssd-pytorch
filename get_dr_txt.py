@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw, ImageFont
 from torch.autograd import Variable
 from tqdm import tqdm
 
-from nets import ssd
+from nets.ssd import get_ssd
 from ssd import SSD
 from utils.box_utils import letterbox_image, ssd_correct_boxes
 from utils.config import Config
@@ -23,24 +23,20 @@ from utils.config import Config
 MEANS = (104, 117, 123)
 
 class mAP_SSD(SSD):
-    
-    #---------------------------------------------------#
-    #   获得所有的分类
-    #---------------------------------------------------#
     def generate(self):
         self.confidence = 0.01
-
-        # 计算总的种类
+        #-------------------------------#
+        #   计算总的类的数量
+        #-------------------------------#
         self.num_classes = len(self.class_names) + 1
 
-        # 载入模型
-        model = ssd.get_ssd("test", self.num_classes, self.confidence, self.nms_iou)
-
-        # 载入权重
+        #-------------------------------#
+        #   载入模型与权值
+        #-------------------------------#
+        model = get_ssd("test", self.num_classes, self.confidence, self.nms_iou)
         print('Loading weights into state dict...')
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model.load_state_dict(torch.load(self.model_path, map_location=device))
-
         self.net = model.eval()
 
         if self.cuda:
@@ -63,12 +59,20 @@ class mAP_SSD(SSD):
     def detect_image(self,image_id,image):
         f = open("./input/detection-results/"+image_id+".txt","w") 
         image_shape = np.array(np.shape(image)[0:2])
+    
+        #---------------------------------------------------------#
+        #   给图像增加灰条，实现不失真的resize
+        #   也可以直接resize进行识别
+        #---------------------------------------------------------#
+        if self.letterbox_image:
+            crop_img = np.array(letterbox_image(image, (self.input_shape[1],self.input_shape[0])))
+        else:
+            crop_img = image.convert('RGB')
+            crop_img = crop_img.resize((self.input_shape[1],self.input_shape[0]), Image.BICUBIC)
 
-        crop_img = np.array(letterbox_image(image, (self.input_shape[1],self.input_shape[0])))
         photo = np.array(crop_img,dtype = np.float64)
-        # 图片预处理，归一化
         with torch.no_grad():
-            photo = Variable(torch.from_numpy(np.expand_dims(np.transpose(crop_img - MEANS, (2,0,1)),0)).type(torch.FloatTensor))
+            photo = Variable(torch.from_numpy(np.expand_dims(np.transpose(photo - MEANS, (2,0,1)),0)).type(torch.FloatTensor))
             if self.cuda:
                 photo = photo.cuda()
             preds = self.net(photo)
@@ -88,17 +92,24 @@ class mAP_SSD(SSD):
                     top_bboxes.append(coords)
                     j = j + 1
 
-        # 将预测结果进行解码
         if len(top_conf)<=0:
-            return image
+            return 
             
         top_conf = np.array(top_conf)
         top_label = np.array(top_label)
         top_bboxes = np.array(top_bboxes)
         top_xmin, top_ymin, top_xmax, top_ymax = np.expand_dims(top_bboxes[:,0],-1),np.expand_dims(top_bboxes[:,1],-1),np.expand_dims(top_bboxes[:,2],-1),np.expand_dims(top_bboxes[:,3],-1)
-
-        # 去掉灰条
-        boxes = ssd_correct_boxes(top_ymin,top_xmin,top_ymax,top_xmax,np.array([self.input_shape[0],self.input_shape[1]]),image_shape)
+        #-----------------------------------------------------------#
+        #   去掉灰条部分
+        #-----------------------------------------------------------#
+        if self.letterbox_image:
+            boxes = ssd_correct_boxes(top_ymin,top_xmin,top_ymax,top_xmax,np.array([self.input_shape[0],self.input_shape[1]]),image_shape)
+        else:
+            top_xmin = top_xmin * image_shape[1]
+            top_ymin = top_ymin * image_shape[0]
+            top_xmax = top_xmax * image_shape[1]
+            top_ymax = top_ymax * image_shape[0]
+            boxes = np.concatenate([top_ymin,top_xmin,top_ymax,top_xmax], axis=-1)
 
         for i, c in enumerate(top_label):
             predicted_class = c

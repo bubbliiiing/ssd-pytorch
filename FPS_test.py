@@ -18,15 +18,23 @@ from utils.box_utils import letterbox_image, ssd_correct_boxes
 video.py里面测试的FPS会低于该FPS，因为摄像头的读取频率有限，而且处理过程包含了前处理和绘图部分。
 '''
 MEANS = (104, 117, 123)
+
 class FPS_SSD(SSD):
     def get_FPS(self, image, test_interval):
-        # 调整图片使其符合输入要求
         image_shape = np.array(np.shape(image)[0:2])
-        crop_img = np.array(letterbox_image(image, (self.input_shape[1],self.input_shape[0])))
+        #---------------------------------------------------------#
+        #   给图像增加灰条，实现不失真的resize
+        #   也可以直接resize进行识别
+        #---------------------------------------------------------#
+        if self.letterbox_image:
+            crop_img = np.array(letterbox_image(image, (self.input_shape[1],self.input_shape[0])))
+        else:
+            crop_img = image.convert('RGB')
+            crop_img = crop_img.resize((self.input_shape[1],self.input_shape[0]), Image.BICUBIC)
+
         photo = np.array(crop_img,dtype = np.float64)
-        # 图片预处理，归一化
         with torch.no_grad():
-            photo = Variable(torch.from_numpy(np.expand_dims(np.transpose(crop_img-MEANS,(2,0,1)),0)).type(torch.FloatTensor))
+            photo = Variable(torch.from_numpy(np.expand_dims(np.transpose(photo-MEANS,(2,0,1)),0)).type(torch.FloatTensor))
             if self.cuda:
                 photo = photo.cuda()
             preds = self.net(photo)
@@ -44,14 +52,23 @@ class FPS_SSD(SSD):
                     top_label.append(label_name)
                     top_bboxes.append(coords)
                     j = j + 1
-            # 将预测结果进行解码
+                    
             if len(top_conf)>0:
                 top_conf = np.array(top_conf)
                 top_label = np.array(top_label)
                 top_bboxes = np.array(top_bboxes)
                 top_xmin, top_ymin, top_xmax, top_ymax = np.expand_dims(top_bboxes[:,0],-1),np.expand_dims(top_bboxes[:,1],-1),np.expand_dims(top_bboxes[:,2],-1),np.expand_dims(top_bboxes[:,3],-1)
-                # 去掉灰条
-                boxes = ssd_correct_boxes(top_ymin,top_xmin,top_ymax,top_xmax,np.array([self.input_shape[0],self.input_shape[1]]),image_shape)
+                #-----------------------------------------------------------#
+                #   去掉灰条部分
+                #-----------------------------------------------------------#
+                if self.letterbox_image:
+                    boxes = ssd_correct_boxes(top_ymin,top_xmin,top_ymax,top_xmax,np.array([self.input_shape[0],self.input_shape[1]]),image_shape)
+                else:
+                    top_xmin = top_xmin * image_shape[1]
+                    top_ymin = top_ymin * image_shape[0]
+                    top_xmax = top_xmax * image_shape[1]
+                    top_ymax = top_ymax * image_shape[0]
+                    boxes = np.concatenate([top_ymin,top_xmin,top_ymax,top_xmax], axis=-1)
 
         t1 = time.time()
         for _ in range(test_interval):
@@ -71,14 +88,23 @@ class FPS_SSD(SSD):
                         top_label.append(label_name)
                         top_bboxes.append(coords)
                         j = j + 1
-                # 将预测结果进行解码
+                        
                 if len(top_conf)>0:
                     top_conf = np.array(top_conf)
                     top_label = np.array(top_label)
                     top_bboxes = np.array(top_bboxes)
                     top_xmin, top_ymin, top_xmax, top_ymax = np.expand_dims(top_bboxes[:,0],-1),np.expand_dims(top_bboxes[:,1],-1),np.expand_dims(top_bboxes[:,2],-1),np.expand_dims(top_bboxes[:,3],-1)
-                    # 去掉灰条
-                    boxes = ssd_correct_boxes(top_ymin,top_xmin,top_ymax,top_xmax,np.array([self.input_shape[0],self.input_shape[1]]),image_shape)
+                    #-----------------------------------------------------------#
+                    #   去掉灰条部分
+                    #-----------------------------------------------------------#
+                    if self.letterbox_image:
+                        boxes = ssd_correct_boxes(top_ymin,top_xmin,top_ymax,top_xmax,np.array([self.input_shape[0],self.input_shape[1]]),image_shape)
+                    else:
+                        top_xmin = top_xmin * image_shape[1]
+                        top_ymin = top_ymin * image_shape[0]
+                        top_xmax = top_xmax * image_shape[1]
+                        top_ymax = top_ymax * image_shape[0]
+                        boxes = np.concatenate([top_ymin,top_xmin,top_ymax,top_xmax], axis=-1)
 
         t2 = time.time()
         tact_time = (t2 - t1) / test_interval
