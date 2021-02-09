@@ -1,6 +1,9 @@
 ## SSD：Single-Shot MultiBox Detector目标检测模型在Pytorch当中的实现
 ---
 
+**2021年2月8日更新：**   
+**加入letterbox_image的选项，关闭letterbox_image后网络的map一般可以得到提升。**
+
 ## 目录
 1. [性能情况 Performance](#性能情况)
 2. [所需环境 Environment](#所需环境)
@@ -12,7 +15,7 @@
 ## 性能情况
 | 训练数据集 | 权值文件名称 | 测试数据集 | 输入图片大小 | mAP 0.5:0.95 | mAP 0.5 |
 | :-----: | :-----: | :------: | :------: | :------: | :-----: |
-| VOC07+12 | [ssd_weights.pth](https://github.com/bubbliiiing/ssd-pytorch/releases/download/v1.0/ssd_weights.pth) | VOC-Test07 | 300x300| - | 77.64 
+| VOC07+12 | [ssd_weights.pth](https://github.com/bubbliiiing/ssd-pytorch/releases/download/v1.0/ssd_weights.pth) | VOC-Test07 | 300x300| - | 79.39
 
 ## 所需环境
 torch == 1.2.0
