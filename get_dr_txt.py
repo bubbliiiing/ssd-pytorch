@@ -22,6 +22,17 @@ from utils.config import Config
 
 MEANS = (104, 117, 123)
 
+'''
+这里设置的门限值较低是因为计算map需要用到不同门限条件下的Recall和Precision值。
+所以只有保留的框足够多，计算的map才会更精确，详情可以了解map的原理。
+计算map时输出的Recall和Precision值指的是门限为0.5时的Recall和Precision值。
+
+此处获得的./input/detection-results/里面的txt的框的数量会比直接predict多一些，这是因为这里的门限低，
+目的是为了计算不同门限条件下的Recall和Precision值，从而实现map的计算。
+
+可能有些同学知道有0.5和0.5:0.95的mAP。
+如果想要设定mAP0.x，比如设定mAP0.75，可以去get_map.py设定MINOVERLAP。
+'''
 class mAP_SSD(SSD):
     def generate(self):
         self.confidence = 0.01
