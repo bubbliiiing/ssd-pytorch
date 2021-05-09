@@ -13,7 +13,7 @@ from torchsummary import summary
 from tqdm import tqdm
 
 from nets.ssd import get_ssd
-from nets.ssd_training import Generator, MultiBoxLoss
+from nets.ssd_training import Generator, LossHistory, MultiBoxLoss
 from utils.config import Config
 from utils.dataloader import SSDDataset, ssd_dataset_collate
 
@@ -106,6 +106,8 @@ def fit_one_epoch(net,criterion,epoch,epoch_size,epoch_size_val,gen,genval,Epoch
 
     total_loss = loc_loss + conf_loss
     val_loss = loc_loss_val + conf_loss_val
+
+    loss_history.append_loss(total_loss/(epoch_size+1), val_loss/(epoch_size_val+1))
     print('Finish Validation')
     print('Epoch:'+ str(epoch+1) + '/' + str(Epoch))
     print('Total Loss: %.4f || Val Loss: %.4f ' % (total_loss/(epoch_size+1),val_loss/(epoch_size_val+1)))
@@ -159,6 +161,7 @@ if __name__ == "__main__":
     num_train = len(lines) - num_val
     
     criterion = MultiBoxLoss(Config['num_classes'], 0.5, True, 0, True, 3, 0.5, False, Cuda)
+    loss_history = LossHistory("logs/")
 
     net = model.train()
     if Cuda:
@@ -201,6 +204,9 @@ if __name__ == "__main__":
         epoch_size = num_train // Batch_size
         epoch_size_val = num_val // Batch_size
 
+        if epoch_size == 0 or epoch_size_val == 0:
+            raise ValueError("数据集过小，无法进行训练，请扩充数据集。")
+
         for epoch in range(Init_Epoch,Freeze_Epoch):
             fit_one_epoch(net,criterion,epoch,epoch_size,epoch_size_val,gen,gen_val,Freeze_Epoch,Cuda)
             lr_scheduler.step()
@@ -232,6 +238,9 @@ if __name__ == "__main__":
         epoch_size = num_train // Batch_size
         epoch_size_val = num_val // Batch_size
 
+        if epoch_size == 0 or epoch_size_val == 0:
+            raise ValueError("数据集过小，无法进行训练，请扩充数据集。")
+            
         for epoch in range(Freeze_Epoch,Unfreeze_Epoch):
             fit_one_epoch(net,criterion,epoch,epoch_size,epoch_size_val,gen,gen_val,Unfreeze_Epoch,Cuda)
             lr_scheduler.step()
