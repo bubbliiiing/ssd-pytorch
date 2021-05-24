@@ -1,6 +1,8 @@
 ## SSD：Single-Shot MultiBox Detector目标检测模型在Pytorch当中的实现
 ---
 
+**2021年5月24日更新：**   
+**添加了mobilenetv2作为ssd的主干特征提取网络，作为轻量级ssd的实现，可通过设置train.py和ssd.py中的backbone进行主干变换。**
 **2021年2月8日更新：**   
 **加入letterbox_image的选项，关闭letterbox_image后网络的map一般可以得到提升。**
 
@@ -45,11 +47,22 @@ img/street.jpg
 2. 在ssd.py文件里面，在如下部分修改model_path和classes_path使其对应训练好的文件；**model_path对应logs文件夹下面的权值文件，classes_path是model_path对应分的类**。  
 ```python
 _defaults = {
-    "model_path": 'model_data/ssd_weights.pth',
-    "classes_path": 'model_data/voc_classes.txt',
-    "model_image_size" : (300, 300, 3),
-    "confidence": 0.5,
-    "cuda": True,
+    "model_path"        : 'model_data/ssd_weights.pth',
+    "classes_path"      : 'model_data/voc_classes.txt',
+    "input_shape"       : (300, 300, 3),
+    "confidence"        : 0.5,
+    "nms_iou"           : 0.45,
+    "cuda"              : True,
+    #-------------------------------#
+    #   主干网络的选择
+    #   vgg或者mobilenet
+    #-------------------------------#
+    "backbone"          : "vgg",
+    #---------------------------------------------------------------------#
+    #   该变量用于控制是否使用letterbox_image对输入图像进行不失真的resize，
+    #   在多次测试后，发现关闭letterbox_image直接resize的效果更好
+    #---------------------------------------------------------------------#
+    "letterbox_image"   : False,
 }
 ```
 3. 运行predict.py，输入  
