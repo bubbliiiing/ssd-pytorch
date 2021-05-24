@@ -177,7 +177,7 @@ if __name__ == "__main__":
     #   提示OOM或者显存不足请调小Batch_size
     #------------------------------------------------------#
     if True:
-        lr              = 3e-4
+        lr              = 5e-4
         Batch_size      = 32
         Init_Epoch      = 0
         Freeze_Epoch    = 50
@@ -211,7 +211,7 @@ if __name__ == "__main__":
             lr_scheduler.step(val_loss)
 
     if True:
-        lr              = 5e-5
+        lr              = 1e-4
         Batch_size      = 16
         Freeze_Epoch    = 50
         Unfreeze_Epoch  = 100
