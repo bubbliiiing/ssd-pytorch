@@ -5,20 +5,16 @@
 #----------------------------------------------------#
 import colorsys
 import os
-import warnings
 
-import cv2
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-from PIL import Image, ImageDraw, ImageFont
-from torch.autograd import Variable
+from PIL import Image
 from tqdm import tqdm
 
 from nets.ssd import get_ssd
 from ssd import SSD
 from utils.box_utils import letterbox_image, ssd_correct_boxes
-from utils.config import Config
 
 MEANS = (104, 117, 123)
 
@@ -44,7 +40,7 @@ class mAP_SSD(SSD):
         #-------------------------------#
         #   载入模型与权值
         #-------------------------------#
-        model = get_ssd("test", self.num_classes, self.confidence, self.nms_iou)
+        model = get_ssd("test", self.num_classes, self.backbone, self.confidence, self.nms_iou)
         print('Loading weights into state dict...')
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model.load_state_dict(torch.load(self.model_path, map_location=device))
@@ -83,7 +79,7 @@ class mAP_SSD(SSD):
 
         photo = np.array(crop_img,dtype = np.float64)
         with torch.no_grad():
-            photo = Variable(torch.from_numpy(np.expand_dims(np.transpose(photo - MEANS, (2,0,1)),0)).type(torch.FloatTensor))
+            photo = torch.from_numpy(np.expand_dims(np.transpose(photo - MEANS, (2,0,1)),0)).type(torch.FloatTensor)
             if self.cuda:
                 photo = photo.cuda()
             preds = self.net(photo)

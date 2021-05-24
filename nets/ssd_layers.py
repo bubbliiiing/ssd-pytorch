@@ -1,5 +1,3 @@
-from __future__ import division
-
 from itertools import product as product
 from math import sqrt as sqrt
 
@@ -7,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.init as init
-from torch.autograd import Function, Variable
+from torch.autograd import Function
 from utils.box_utils import decode, nms
 from utils.config import Config
 
@@ -81,17 +79,17 @@ class Detect(Function):
         return output
 
 class PriorBox(object):
-    def __init__(self, cfg):
+    def __init__(self, backbone_name, cfg):
         super(PriorBox, self).__init__()
         # 获得输入图片的大小，默认为300x300
         self.image_size = cfg['min_dim']
         self.num_priors = len(cfg['aspect_ratios'])
         self.variance = cfg['variance'] or [0.1]
-        self.feature_maps = cfg['feature_maps']
+        self.feature_maps = cfg['feature_maps'][backbone_name]
         self.min_sizes = cfg['min_sizes']
         self.max_sizes = cfg['max_sizes']
-        self.steps = cfg['steps']
-        self.aspect_ratios = cfg['aspect_ratios']
+        self.steps = [cfg['min_dim']/x for x in cfg['feature_maps'][backbone_name]]
+        self.aspect_ratios = cfg['aspect_ratios'][backbone_name]
         self.clip = cfg['clip']
         for v in self.variance:
             if v <= 0:

@@ -1,16 +1,9 @@
 import os
-from random import shuffle
-
-import cv2
-import numpy as np
 import scipy.signal
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
-from matplotlib.colors import hsv_to_rgb, rgb_to_hsv
-from PIL import Image
-from torch.autograd import Variable
 from utils.box_utils import log_sum_exp, match
 from utils.config import Config
 
@@ -70,14 +63,6 @@ class MultiBoxLoss(nn.Module):
             #   该先验框用于负责检测出该真实框。
             #--------------------------------------------------#
             match(self.threshold, truths, defaults, self.variance, labels, loc_t, conf_t, idx)
-
-        #--------------------------------------------------#
-        #   转化成Variable
-        #   loc_t   (num, num_priors, 4)
-        #   conf_t  (num, num_priors)
-        #--------------------------------------------------#
-        loc_t = Variable(loc_t, requires_grad=False)
-        conf_t = Variable(conf_t, requires_grad=False)
 
         # 所有conf_t>0的地方，代表内部包含物体
         pos = conf_t > 0
@@ -143,148 +128,6 @@ class MultiBoxLoss(nn.Module):
         loss_c /= N
         return loss_l, loss_c
 
-def rand(a=0, b=1):
-    return np.random.rand()*(b-a) + a
-
-class Generator(object):
-    def __init__(self,batch_size,
-                 lines, image_size,num_classes,
-                 ):
-        
-        self.batch_size = batch_size
-        self.lines = lines
-        self.image_size = image_size
-        self.num_classes = num_classes-1
-        
-    def get_random_data(self, annotation_line, input_shape, jitter=.3, hue=.1, sat=1.5, val=1.5, random=True):
-        """实时数据增强的随机预处理"""
-        line = annotation_line.split()
-        image = Image.open(line[0])
-        iw, ih = image.size
-        h, w = input_shape
-        box = np.array([np.array(list(map(int, box.split(',')))) for box in line[1:]])
-
-        if not random:
-            # resize image
-            scale = min(w/iw, h/ih)
-            nw = int(iw*scale)
-            nh = int(ih*scale)
-            dx = (w-nw)//2
-            dy = (h-nh)//2
-
-            image = image.resize((nw,nh), Image.BICUBIC)
-            new_image = Image.new('RGB', (w,h), (128,128,128))
-            new_image.paste(image, (dx, dy))
-            image_data = np.array(new_image, np.float32)
-
-            # correct boxes
-            box_data = np.zeros((len(box),5))
-            if len(box)>0:
-                np.random.shuffle(box)
-                box[:, [0,2]] = box[:, [0,2]]*nw/iw + dx
-                box[:, [1,3]] = box[:, [1,3]]*nh/ih + dy
-                box[:, 0:2][box[:, 0:2]<0] = 0
-                box[:, 2][box[:, 2]>w] = w
-                box[:, 3][box[:, 3]>h] = h
-                box_w = box[:, 2] - box[:, 0]
-                box_h = box[:, 3] - box[:, 1]
-                box = box[np.logical_and(box_w>1, box_h>1)]
-                box_data = np.zeros((len(box),5))
-                box_data[:len(box)] = box
-
-            return image_data, box_data
-            
-        # 调整图片大小
-        new_ar = w / h * rand(1 - jitter, 1 + jitter) / rand(1 - jitter, 1 + jitter)
-        scale = rand(.25, 2)
-        if new_ar < 1:
-            nh = int(scale * h)
-            nw = int(nh * new_ar)
-        else:
-            nw = int(scale * w)
-            nh = int(nw / new_ar)
-        image = image.resize((nw, nh), Image.BICUBIC)
-
-        # 放置图片
-        dx = int(rand(0, w - nw))
-        dy = int(rand(0, h - nh))
-        new_image = Image.new('RGB', (w, h),
-                              (np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)))
-        new_image.paste(image, (dx, dy))
-        image = new_image
-
-        # 是否翻转图片
-        flip = rand() < .5
-        if flip:
-            image = image.transpose(Image.FLIP_LEFT_RIGHT)
-
-        # 色域变换
-        hue = rand(-hue, hue)
-        sat = rand(1, sat) if rand() < .5 else 1 / rand(1, sat)
-        val = rand(1, val) if rand() < .5 else 1 / rand(1, val)
-        x = cv2.cvtColor(np.array(image,np.float32)/255, cv2.COLOR_RGB2HSV)
-        x[..., 0] += hue*360
-        x[..., 0][x[..., 0]>1] -= 1
-        x[..., 0][x[..., 0]<0] += 1
-        x[..., 1] *= sat
-        x[..., 2] *= val
-        x[x[:,:, 0]>360, 0] = 360
-        x[:, :, 1:][x[:, :, 1:]>1] = 1
-        x[x<0] = 0
-        image_data = cv2.cvtColor(x, cv2.COLOR_HSV2RGB)*255
-
-        # 调整目标框坐标
-        box_data = np.zeros((len(box), 5))
-        if len(box) > 0:
-            np.random.shuffle(box)
-            box[:, [0, 2]] = box[:, [0, 2]] * nw / iw + dx
-            box[:, [1, 3]] = box[:, [1, 3]] * nh / ih + dy
-            if flip:
-                box[:, [0, 2]] = w - box[:, [2, 0]]
-            box[:, 0:2][box[:, 0:2] < 0] = 0
-            box[:, 2][box[:, 2] > w] = w
-            box[:, 3][box[:, 3] > h] = h
-            box_w = box[:, 2] - box[:, 0]
-            box_h = box[:, 3] - box[:, 1]
-            box = box[np.logical_and(box_w > 1, box_h > 1)]  # 保留有效框
-            box_data = np.zeros((len(box), 5))
-            box_data[:len(box)] = box
-
-        return image_data, box_data
-
-    def generate(self, train=True):
-        while True:
-            shuffle(self.lines)
-            lines = self.lines
-            inputs = []
-            targets = []
-
-            for annotation_line in lines:  
-                if train:
-                    img, y = self.get_random_data(annotation_line, self.image_size[0:2])
-                else:
-                    img, y = self.get_random_data(annotation_line, self.image_size[0:2], random=False)
-
-                boxes = np.array(y[:,:4],dtype=np.float32)
-                boxes[:,0] = boxes[:,0]/self.image_size[1]
-                boxes[:,1] = boxes[:,1]/self.image_size[0]
-                boxes[:,2] = boxes[:,2]/self.image_size[1]
-                boxes[:,3] = boxes[:,3]/self.image_size[0]
-
-                boxes = np.maximum(np.minimum(boxes,1), 0)
-                
-                y = np.concatenate([boxes, y[:,-1:]],axis=-1)
-
-                inputs.append(np.transpose(img - MEANS, (2,0,1)))                
-                targets.append(y)
-                if len(targets) == self.batch_size:
-                    tmp_inp = np.array(inputs)
-                    tmp_targets = targets
-                    inputs = []
-                    targets = []
-                    yield tmp_inp, tmp_targets
-                    
-                    
 class LossHistory():
     def __init__(self, log_dir):
         import datetime
@@ -333,5 +176,22 @@ class LossHistory():
 
         plt.savefig(os.path.join(self.save_path, "epoch_loss_" + str(self.time_str) + ".png"))
 
-        plt.cla()
-        plt.close("all")
+def weights_init(net, init_type='normal', init_gain=0.02):
+    def init_func(m):
+        classname = m.__class__.__name__
+        if hasattr(m, 'weight') and classname.find('Conv') != -1:
+            if init_type == 'normal':
+                torch.nn.init.normal_(m.weight.data, 0.0, init_gain)
+            elif init_type == 'xavier':
+                torch.nn.init.xavier_normal_(m.weight.data, gain=init_gain)
+            elif init_type == 'kaiming':
+                torch.nn.init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
+            elif init_type == 'orthogonal':
+                torch.nn.init.orthogonal_(m.weight.data, gain=init_gain)
+            else:
+                raise NotImplementedError('initialization method [%s] is not implemented' % init_type)
+        elif classname.find('BatchNorm2d') != -1:
+            torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
+            torch.nn.init.constant_(m.bias.data, 0.0)
+    print('initialize network with %s type' % init_type)
+    net.apply(init_func)

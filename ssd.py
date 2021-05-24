@@ -1,24 +1,22 @@
 import colorsys
 import os
+import time
 import warnings
 
-import cv2
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 from PIL import Image, ImageDraw, ImageFont
-from torch.autograd import Variable
 
 from nets import ssd
 from utils.box_utils import letterbox_image, ssd_correct_boxes
-from utils.config import Config
 
 warnings.filterwarnings("ignore")
 
 MEANS = (104, 117, 123)
 #--------------------------------------------#
-#   使用自己训练好的模型预测需要修改2个参数
-#   model_path和classes_path都需要修改！
+#   使用自己训练好的模型预测需要修改3个参数
+#   model_path、backbone和classes_path都需要修改！
 #   如果出现shape不匹配
 #   一定要注意训练时的config里面的num_classes、
 #   model_path和classes_path参数的修改
@@ -31,6 +29,11 @@ class SSD(object):
         "confidence"        : 0.5,
         "nms_iou"           : 0.45,
         "cuda"              : True,
+        #-------------------------------#
+        #   主干网络的选择
+        #   vgg或者mobilenet
+        #-------------------------------#
+        "backbone"          : "vgg",
         #---------------------------------------------------------------------#
         #   该变量用于控制是否使用letterbox_image对输入图像进行不失真的resize，
         #   在多次测试后，发现关闭letterbox_image直接resize的效果更好
@@ -75,7 +78,7 @@ class SSD(object):
         #-------------------------------#
         #   载入模型与权值
         #-------------------------------#
-        model = ssd.get_ssd("test", self.num_classes, self.confidence, self.nms_iou)
+        model = ssd.get_ssd("test", self.num_classes, self.backbone, self.confidence, self.nms_iou)
         print('Loading weights into state dict...')
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model.load_state_dict(torch.load(self.model_path, map_location=device))
@@ -119,7 +122,7 @@ class SSD(object):
             #---------------------------------------------------#
             #   图片预处理，归一化
             #---------------------------------------------------#
-            photo = Variable(torch.from_numpy(np.expand_dims(np.transpose(photo - MEANS, (2,0,1)), 0)).type(torch.FloatTensor))
+            photo = torch.from_numpy(np.expand_dims(np.transpose(photo - MEANS, (2, 0, 1)), 0)).type(torch.FloatTensor)
             if self.cuda:
                 photo = photo.cuda()
                 
@@ -216,3 +219,93 @@ class SSD(object):
             del draw
         return image
 
+
+    def get_FPS(self, image, test_interval):
+        image_shape = np.array(np.shape(image)[0:2])
+        #---------------------------------------------------------#
+        #   给图像增加灰条，实现不失真的resize
+        #   也可以直接resize进行识别
+        #---------------------------------------------------------#
+        if self.letterbox_image:
+            crop_img = np.array(letterbox_image(image, (self.input_shape[1],self.input_shape[0])))
+        else:
+            crop_img = image.convert('RGB')
+            crop_img = crop_img.resize((self.input_shape[1],self.input_shape[0]), Image.BICUBIC)
+
+        photo = np.array(crop_img,dtype = np.float64)
+        with torch.no_grad():
+            photo = torch.from_numpy(np.expand_dims(np.transpose(photo-MEANS,(2,0,1)),0)).type(torch.FloatTensor)
+            if self.cuda:
+                photo = photo.cuda()
+            preds = self.net(photo)
+            top_conf = []
+            top_label = []
+            top_bboxes = []
+            for i in range(preds.size(1)):
+                j = 0
+                while preds[0, i, j, 0] >= self.confidence:
+                    score = preds[0, i, j, 0]
+                    label_name = self.class_names[i-1]
+                    pt = (preds[0, i, j, 1:]).detach().numpy()
+                    coords = [pt[0], pt[1], pt[2], pt[3]]
+                    top_conf.append(score)
+                    top_label.append(label_name)
+                    top_bboxes.append(coords)
+                    j = j + 1
+                    
+            if len(top_conf)>0:
+                top_conf = np.array(top_conf)
+                top_label = np.array(top_label)
+                top_bboxes = np.array(top_bboxes)
+                top_xmin, top_ymin, top_xmax, top_ymax = np.expand_dims(top_bboxes[:,0],-1),np.expand_dims(top_bboxes[:,1],-1),np.expand_dims(top_bboxes[:,2],-1),np.expand_dims(top_bboxes[:,3],-1)
+                #-----------------------------------------------------------#
+                #   去掉灰条部分
+                #-----------------------------------------------------------#
+                if self.letterbox_image:
+                    boxes = ssd_correct_boxes(top_ymin,top_xmin,top_ymax,top_xmax,np.array([self.input_shape[0],self.input_shape[1]]),image_shape)
+                else:
+                    top_xmin = top_xmin * image_shape[1]
+                    top_ymin = top_ymin * image_shape[0]
+                    top_xmax = top_xmax * image_shape[1]
+                    top_ymax = top_ymax * image_shape[0]
+                    boxes = np.concatenate([top_ymin,top_xmin,top_ymax,top_xmax], axis=-1)
+
+        t1 = time.time()
+        for _ in range(test_interval):
+            with torch.no_grad():
+                preds = self.net(photo)
+                top_conf = []
+                top_label = []
+                top_bboxes = []
+                for i in range(preds.size(1)):
+                    j = 0
+                    while preds[0, i, j, 0] >= self.confidence:
+                        score = preds[0, i, j, 0]
+                        label_name = self.class_names[i-1]
+                        pt = (preds[0, i, j, 1:]).detach().numpy()
+                        coords = [pt[0], pt[1], pt[2], pt[3]]
+                        top_conf.append(score)
+                        top_label.append(label_name)
+                        top_bboxes.append(coords)
+                        j = j + 1
+                        
+                if len(top_conf)>0:
+                    top_conf = np.array(top_conf)
+                    top_label = np.array(top_label)
+                    top_bboxes = np.array(top_bboxes)
+                    top_xmin, top_ymin, top_xmax, top_ymax = np.expand_dims(top_bboxes[:,0],-1),np.expand_dims(top_bboxes[:,1],-1),np.expand_dims(top_bboxes[:,2],-1),np.expand_dims(top_bboxes[:,3],-1)
+                    #-----------------------------------------------------------#
+                    #   去掉灰条部分
+                    #-----------------------------------------------------------#
+                    if self.letterbox_image:
+                        boxes = ssd_correct_boxes(top_ymin,top_xmin,top_ymax,top_xmax,np.array([self.input_shape[0],self.input_shape[1]]),image_shape)
+                    else:
+                        top_xmin = top_xmin * image_shape[1]
+                        top_ymin = top_ymin * image_shape[0]
+                        top_xmax = top_xmax * image_shape[1]
+                        top_ymax = top_ymax * image_shape[0]
+                        boxes = np.concatenate([top_ymin,top_xmin,top_ymax,top_xmax], axis=-1)
+
+        t2 = time.time()
+        tact_time = (t2 - t1) / test_interval
+        return tact_time

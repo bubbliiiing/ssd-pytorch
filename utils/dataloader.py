@@ -1,15 +1,6 @@
-import math
-from random import shuffle
-
 import cv2
 import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from matplotlib.colors import hsv_to_rgb, rgb_to_hsv
 from PIL import Image
-from torch.autograd import Variable
-from torch.utils.data import DataLoader
 from torch.utils.data.dataset import Dataset
 
 MEANS = (104, 117, 123)

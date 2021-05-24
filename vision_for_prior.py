@@ -1,4 +1,3 @@
-from itertools import product
 from math import sqrt
 
 import matplotlib.pyplot as plt
@@ -7,14 +6,14 @@ import numpy as np
 from utils.config import Config
 
 mean = []
-for k, f in enumerate(Config["feature_maps"]):
+for k, f in enumerate(Config["feature_maps"]["vgg"]):
     x,y = np.meshgrid(np.arange(f),np.arange(f))
     x = x.reshape(-1)
     y = y.reshape(-1)
     for i, j in zip(y,x):
         # print(x,y)
         # 300/8
-        f_k = Config["min_dim"] / Config["steps"][k]
+        f_k = Config["feature_maps"]["vgg"][k]
         # 计算网格的中心
         cx = (j + 0.5) / f_k
         cy = (i + 0.5) / f_k
@@ -28,17 +27,17 @@ for k, f in enumerate(Config["feature_maps"]):
         mean += [cx, cy, s_k_prime, s_k_prime]
 
         # 获得长方形
-        for ar in Config["aspect_ratios"][k]:
+        for ar in Config["aspect_ratios"]["vgg"][k]:
             mean += [cx, cy, s_k*sqrt(ar), s_k/sqrt(ar)]
             mean += [cx, cy, s_k/sqrt(ar), s_k*sqrt(ar)]
 
 mean = np.clip(mean,0,1)
 mean = np.reshape(mean,[-1,4])*Config["min_dim"]
 
-linx = np.linspace(0.5 * Config["steps"][4], Config["min_dim"] - 0.5 * Config["steps"][4],
-                    Config["feature_maps"][4])
-liny = np.linspace(0.5 * Config["steps"][4], Config["min_dim"] - 0.5 * Config["steps"][4],
-                    Config["feature_maps"][4])
+linx = np.linspace(0.5 * Config["min_dim"]/Config["feature_maps"]["vgg"][4], Config["min_dim"] - 0.5 * Config["min_dim"]/Config["feature_maps"]["vgg"][4],
+                    Config["feature_maps"]["vgg"][4])
+liny = np.linspace(0.5 * Config["min_dim"]/Config["feature_maps"]["vgg"][4], Config["min_dim"] - 0.5 * Config["min_dim"]/Config["feature_maps"]["vgg"][4],
+                    Config["feature_maps"]["vgg"][4])
 
 
 print("linx:",linx)
