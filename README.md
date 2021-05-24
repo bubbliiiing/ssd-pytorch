@@ -24,8 +24,7 @@ torch == 1.2.0
 
 ## 文件下载
 训练所需的ssd_weights.pth可以在百度云下载。  
-链接: https://pan.baidu.com/s/1ru6xnYFpBr2G0n5dKHrxTQ    
-提取码: w3hy   
+链接: https://pan.baidu.com/s/1ru6xnYFpBr2G0n5dKHrxTQ 提取码: w3hy   
 
 VOC数据集下载地址如下：  
 VOC2007+2012训练集    
