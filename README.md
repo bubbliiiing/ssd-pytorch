@@ -17,14 +17,15 @@
 | 训练数据集 | 权值文件名称 | 测试数据集 | 输入图片大小 | mAP 0.5:0.95 | mAP 0.5 |
 | :-----: | :-----: | :------: | :------: | :------: | :-----: |
 | VOC07+12 | [ssd_weights.pth](https://github.com/bubbliiiing/ssd-pytorch/releases/download/v1.0/ssd_weights.pth) | VOC-Test07 | 300x300| - | 79.39
+| VOC07+12 | [mobilenetv2_ssd_weights.pth](https://github.com/bubbliiiing/ssd-pytorch/releases/download/v1.0/mobilenetv2_ssd_weights.pth) | VOC-Test07 | 300x300| - | 71.32
 
 ## 所需环境
 torch == 1.2.0
 
 ## 文件下载
 训练所需的ssd_weights.pth可以在百度云下载。  
-链接: https://pan.baidu.com/s/1ltXCkuSxKRJUsLi0IoBg2A  
-提取码: uqnw  
+链接: https://pan.baidu.com/s/1ru6xnYFpBr2G0n5dKHrxTQ    
+提取码: w3hy   
 
 VOC数据集下载地址如下：  
 VOC2007+2012训练集    
