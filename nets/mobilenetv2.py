@@ -1,10 +1,6 @@
 from torch import nn
 from torchvision.models.utils import load_state_dict_from_url
 
-model_urls = {
-    'mobilenet_v2': 'https://download.pytorch.org/models/mobilenet_v2-b0353104.pth',
-}
-
 def _make_divisible(v, divisor, min_value=None):
     if min_value is None:
         min_value = divisor
@@ -110,7 +106,7 @@ class MobileNetV2(nn.Module):
 def mobilenet_v2(pretrained=False, progress=True, **kwargs):
     model = MobileNetV2(**kwargs)
     if pretrained:
-        state_dict = load_state_dict_from_url(model_urls['mobilenet_v2'],
+        state_dict = load_state_dict_from_url('https://download.pytorch.org/models/mobilenet_v2-b0353104.pth', model_dir="./model_data",
                                               progress=progress)
         model.load_state_dict(state_dict)
     del model.classifier
@@ -119,4 +115,4 @@ def mobilenet_v2(pretrained=False, progress=True, **kwargs):
 if __name__ == "__main__":
     net = mobilenet_v2()
     for i, layer in enumerate(net.features):
-        print(i,layer)
+        print(i, layer)

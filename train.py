@@ -5,168 +5,142 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 
-from nets.ssd import get_ssd
-from nets.ssd_training import LossHistory, MultiBoxLoss, weights_init
-from utils.config import Config
+from nets.ssd import SSD300
+from nets.ssd_training import MultiboxLoss, weights_init
+from utils.anchors import get_anchors
+from utils.callbacks import LossHistory
 from utils.dataloader import SSDDataset, ssd_dataset_collate
+from utils.utils import get_classes
+from utils.utils_fit import fit_one_epoch
 
 warnings.filterwarnings("ignore")
 
-#------------------------------------------------------------------------#
-#   这里看到的train.py和视频上不太一样
-#   我重构了一下train.py，添加了验证集
-#   这样训练的时候可以有个参考。
-#   训练前注意在config.py里面修改num_classes
-#   训练世代、学习率、批处理大小等参数在本代码靠下的if True:内进行修改。
-#-------------------------------------------------------------------------#
-def get_lr(optimizer):
-    for param_group in optimizer.param_groups:
-        return param_group['lr']
-
-def fit_one_epoch(net,criterion,epoch,epoch_size,epoch_size_val,gen,genval,Epoch,cuda):
-    loc_loss        = 0
-    conf_loss       = 0
-    loc_loss_val    = 0
-    conf_loss_val   = 0
-
-    net.train()
-    print('Start Train')
-    with tqdm(total=epoch_size,desc=f'Epoch {epoch + 1}/{Epoch}',postfix=dict,mininterval=0.3) as pbar:
-        for iteration, batch in enumerate(gen):
-            if iteration >= epoch_size:
-                break
-            images, targets = batch[0], batch[1]
-            with torch.no_grad():
-                if cuda:
-                    images  = torch.from_numpy(images).type(torch.FloatTensor).cuda()
-                    targets = [torch.from_numpy(ann).type(torch.FloatTensor).cuda() for ann in targets]
-                else:
-                    images  = torch.from_numpy(images).type(torch.FloatTensor)
-                    targets = [torch.from_numpy(ann).type(torch.FloatTensor) for ann in targets]
-            #----------------------#
-            #   前向传播
-            #----------------------#
-            out = net(images)
-            #----------------------#
-            #   清零梯度
-            #----------------------#
-            optimizer.zero_grad()
-            #----------------------#
-            #   计算损失
-            #----------------------#
-            loss_l, loss_c  = criterion(out, targets)
-            loss            = loss_l + loss_c
-            #----------------------#
-            #   反向传播
-            #----------------------#
-            loss.backward()
-            optimizer.step()
-
-            loc_loss    += loss_l.item()
-            conf_loss   += loss_c.item()
-
-            pbar.set_postfix(**{'loc_loss'  : loc_loss / (iteration + 1), 
-                                'conf_loss' : conf_loss / (iteration + 1),
-                                'lr'        : get_lr(optimizer)})
-            pbar.update(1)
-                
-    net.eval()
-    print('Start Validation')
-    with tqdm(total=epoch_size_val, desc=f'Epoch {epoch + 1}/{Epoch}',postfix=dict,mininterval=0.3) as pbar:
-        for iteration, batch in enumerate(genval):
-            if iteration >= epoch_size_val:
-                break
-            images, targets = batch[0], batch[1]
-            with torch.no_grad():
-                if cuda:
-                    images  = torch.from_numpy(images).type(torch.FloatTensor).cuda()
-                    targets = [torch.from_numpy(ann).type(torch.FloatTensor).cuda() for ann in targets]
-                else:
-                    images  = torch.from_numpy(images).type(torch.FloatTensor)
-                    targets = [torch.from_numpy(ann).type(torch.FloatTensor) for ann in targets]
-
-                out = net(images)
-                optimizer.zero_grad()
-                loss_l, loss_c = criterion(out, targets)
-
-                loc_loss_val    += loss_l.item()
-                conf_loss_val   += loss_c.item()
-
-                pbar.set_postfix(**{'loc_loss'  : loc_loss_val / (iteration + 1), 
-                                    'conf_loss' : conf_loss_val / (iteration + 1),
-                                    'lr'        : get_lr(optimizer)})
-                pbar.update(1)
-
-    total_loss  = loc_loss + conf_loss
-    val_loss    = loc_loss_val + conf_loss_val
-
-    loss_history.append_loss(total_loss/(epoch_size+1), val_loss/(epoch_size_val+1))
-    print('Finish Validation')
-    print('Epoch:'+ str(epoch+1) + '/' + str(Epoch))
-    print('Total Loss: %.4f || Val Loss: %.4f ' % (total_loss/(epoch_size+1),val_loss/(epoch_size_val+1)))
-    print('Saving state, iter:', str(epoch+1))
-
-    torch.save(model.state_dict(), 'logs/Epoch%d-Total_Loss%.4f-Val_Loss%.4f.pth'%((epoch+1),total_loss/(epoch_size+1),val_loss/(epoch_size_val+1)))
-    return val_loss/(epoch_size_val+1)
-
-#----------------------------------------------------#
-#   检测精度mAP和pr曲线计算参考视频
-#   https://www.bilibili.com/video/BV1zE411u7Vw
-#----------------------------------------------------#
 if __name__ == "__main__":
     #-------------------------------#
     #   是否使用Cuda
     #   没有GPU可以设置成False
     #-------------------------------#
     Cuda = True
+    #--------------------------------------------------------#
+    #   训练前一定要修改classes_path，使其对应自己的数据集
+    #--------------------------------------------------------#
+    classes_path    = 'model_data/voc_classes.txt'
+    #----------------------------------------------------------------------------------------------------------------------------#
+    #   权值文件请看README，百度网盘下载。数据的预训练权重对不同数据集是通用的，因为特征是通用的。
+    #   预训练权重对于99%的情况都必须要用，不用的话权值太过随机，特征提取效果不明显，网络训练的结果也不会好。
+    #
+    #   如果想要断点续练就将model_path设置成logs文件夹下已经训练的权值文件。 
+    #   当model_path = ''的时候不加载整个模型的权值。
+    #
+    #   此处使用的是整个模型的权重，因此是在train.py进行加载的，下面的pretrain不影响此处的权值加载。
+    #   如果想要让模型从主干的预训练权值开始训练，则设置model_path = ''，下面的pretrain = True，此时仅加载主干。
+    #   如果想要让模型从0开始训练，则设置model_path = ''，下面的pretrain = Fasle，Freeze_Train = Fasle，此时从0开始训练，且没有冻结主干的过程。
+    #   一般来讲，从0开始训练效果会很差，因为权值太过随机，特征提取效果不明显。
+    #----------------------------------------------------------------------------------------------------------------------------#
+    model_path      = 'model_data/ssd_weights.pth'
+    #------------------------------------------------------#
+    #   输入的shape大小
+    #------------------------------------------------------#
+    input_shape     = [300, 300]
     #--------------------------------------------#
-    #   与视频中不同、新添加了主干网络的选择
-    #   分别实现了基于mobilenetv2和vgg的ssd
-    #   可通过修改backbone变量进行主干网络的选择
-    #   vgg或者mobilenet
+    #   vgg或者mobilenetv2
     #---------------------------------------------#
-    backbone = "vgg"
+    backbone        = "vgg"
+    #----------------------------------------------------------------------------------------------------------------------------#
+    #   是否使用主干网络的预训练权重，此处使用的是主干的权重，因此是在模型构建的时候进行加载的。
+    #   如果设置了model_path，则主干的权值无需加载，pretrained的值无意义。
+    #   如果不设置model_path，pretrained = True，此时仅加载主干开始训练。
+    #   如果不设置model_path，pretrained = False，Freeze_Train = Fasle，此时从0开始训练，且没有冻结主干的过程。
+    #----------------------------------------------------------------------------------------------------------------------------#
+    pretrained      = False
+    #----------------------------------------------------#
+    #   可用于设定先验框的大小，默认的anchors_size
+    #   是根据voc数据集设定的，大多数情况下都是通用的！
+    #   如果想要检测小物体，可以修改anchors_size
+    #   一般调小浅层先验框的大小就行了！因为浅层负责小物体检测！
+    #   比如anchors_size = [21, 45, 99, 153, 207, 261, 315]
+    #----------------------------------------------------#
+    anchors_size    = [30, 60, 111, 162, 213, 264, 315]
 
-    model = get_ssd("train", Config["num_classes"], backbone)
-    weights_init(model)
+    #----------------------------------------------------#
+    #   训练分为两个阶段，分别是冻结阶段和解冻阶段。
+    #   显存不足与数据集大小无关，提示显存不足请调小batch_size。
+    #   受到BatchNorm层影响，batch_size最小为2，不能为1。
+    #----------------------------------------------------#
+    #----------------------------------------------------#
+    #   冻结阶段训练参数
+    #   此时模型的主干被冻结了，特征提取网络不发生改变
+    #   占用的显存较小，仅对网络进行微调
+    #----------------------------------------------------#
+    Init_Epoch          = 0
+    Freeze_Epoch        = 50
+    Freeze_batch_size   = 16
+    Freeze_lr           = 5e-4
+    #----------------------------------------------------#
+    #   解冻阶段训练参数
+    #   此时模型的主干不被冻结了，特征提取网络会发生改变
+    #   占用的显存较大，网络所有的参数都会发生改变
+    #----------------------------------------------------#
+    UnFreeze_Epoch      = 100
+    Unfreeze_batch_size = 8
+    Unfreeze_lr         = 1e-4
     #------------------------------------------------------#
-    #   权值文件请看README，百度网盘下载
+    #   是否进行冻结训练，默认先冻结主干训练后解冻训练。
     #------------------------------------------------------#
-    model_path = "model_data/ssd_weights.pth"
-    print('Loading weights into state dict...')
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model_dict = model.state_dict()
-    pretrained_dict = torch.load(model_path, map_location=device)
-    pretrained_dict = {k: v for k, v in pretrained_dict.items() if np.shape(model_dict[k]) ==  np.shape(v)}
-    model_dict.update(pretrained_dict)
-    model.load_state_dict(model_dict)
-    print('Finished!')
+    Freeze_Train        = True
+    #------------------------------------------------------#
+    #   用于设置是否使用多线程读取数据
+    #   开启后会加快数据读取速度，但是会占用更多内存
+    #   内存较小的电脑可以设置为2或者0  
+    #------------------------------------------------------#
+    num_workers         = 4
+    #----------------------------------------------------#
+    #   获得图片路径和标签
+    #----------------------------------------------------#
+    train_annotation_path   = '2007_train.txt'
+    val_annotation_path     = '2007_val.txt'
 
-    annotation_path = '2007_train.txt'
-    #----------------------------------------------------------------------#
-    #   验证集的划分在train.py代码里面进行
-    #   2007_test.txt和2007_val.txt里面没有内容是正常的。训练不会使用到。
-    #   当前划分方式下，验证集和训练集的比例为1:9
-    #----------------------------------------------------------------------#
-    val_split = 0.1
-    with open(annotation_path) as f:
-        lines = f.readlines()
-    np.random.seed(10101)
-    np.random.shuffle(lines)
-    np.random.seed(None)
-    num_val = int(len(lines)*val_split)
-    num_train = len(lines) - num_val
-    
-    criterion = MultiBoxLoss(Config['num_classes'], 0.5, True, 0, True, 3, 0.5, False, Cuda)
-    loss_history = LossHistory("logs/")
+    #----------------------------------------------------#
+    #   获取classes和anchor
+    #----------------------------------------------------#
+    class_names, num_classes = get_classes(classes_path)
+    num_classes += 1
+    anchors = get_anchors(input_shape, anchors_size, backbone)
 
-    net = model.train()
+    model = SSD300(num_classes, backbone, pretrained)
+    if not pretrained:
+        weights_init(model)
+    if model_path != '':
+        #------------------------------------------------------#
+        #   权值文件请看README，百度网盘下载
+        #------------------------------------------------------#
+        print('Load weights {}.'.format(model_path))
+        device          = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        model_dict      = model.state_dict()
+        pretrained_dict = torch.load(model_path, map_location = device)
+        pretrained_dict = {k: v for k, v in pretrained_dict.items() if np.shape(model_dict[k]) == np.shape(v)}
+        model_dict.update(pretrained_dict)
+        model.load_state_dict(model_dict)
+
+    model_train = model.train()
     if Cuda:
-        net = torch.nn.DataParallel(model)
+        model_train = torch.nn.DataParallel(model)
         cudnn.benchmark = True
-        net = net.cuda()
+        model_train = model_train.cuda()
+
+    criterion       = MultiboxLoss(num_classes, neg_pos_ratio=3.0)
+    loss_history    = LossHistory("logs/")
+
+    #---------------------------#
+    #   读取数据集对应的txt
+    #---------------------------#
+    with open(train_annotation_path) as f:
+        train_lines = f.readlines()
+    with open(val_annotation_path) as f:
+        val_lines   = f.readlines()
+    num_train   = len(train_lines)
+    num_val     = len(val_lines)
 
     #------------------------------------------------------#
     #   主干特征提取网络特征通用，冻结训练可以加快训练速度
@@ -177,69 +151,79 @@ if __name__ == "__main__":
     #   提示OOM或者显存不足请调小Batch_size
     #------------------------------------------------------#
     if True:
-        lr              = 5e-4
-        Batch_size      = 32
-        Init_Epoch      = 0
-        Freeze_Epoch    = 50
+        batch_size  = Freeze_batch_size
+        lr          = Freeze_lr
+        start_epoch = Init_Epoch
+        end_epoch   = Freeze_Epoch
 
-        optimizer       = optim.Adam(net.parameters(), lr=lr)
-        lr_scheduler    = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
+        optimizer       = optim.Adam(model_train.parameters(), lr, weight_decay = 5e-4)
+        lr_scheduler    = optim.lr_scheduler.StepLR(optimizer, step_size = 1, gamma = 0.95)
 
-        train_dataset   = SSDDataset(lines[:num_train], (Config["min_dim"], Config["min_dim"]), True)
-        val_dataset     = SSDDataset(lines[num_train:], (Config["min_dim"], Config["min_dim"]), False)
+        train_dataset   = SSDDataset(train_lines, input_shape, anchors, batch_size, num_classes, train = True)
+        val_dataset     = SSDDataset(val_lines, input_shape, anchors, batch_size, num_classes, train = False)
 
-        gen             = DataLoader(train_dataset, shuffle=True, batch_size=Batch_size, num_workers=4, pin_memory=True,
-                                drop_last=True, collate_fn=ssd_dataset_collate)
-        gen_val         = DataLoader(val_dataset, shuffle=True, batch_size=Batch_size, num_workers=4, pin_memory=True,
-                                drop_last=True, collate_fn=ssd_dataset_collate)
+        gen             = DataLoader(train_dataset, shuffle = True, batch_size = batch_size, num_workers = num_workers, pin_memory=True,
+                                    drop_last=True, collate_fn=ssd_dataset_collate)
+        gen_val         = DataLoader(val_dataset  , shuffle = True, batch_size = batch_size, num_workers = num_workers, pin_memory=True, 
+                                    drop_last=True, collate_fn=ssd_dataset_collate)
 
-        if backbone == "vgg":
-            for param in model.vgg.parameters():
-                param.requires_grad = False
-        else:
-            for param in model.mobilenet.parameters():
-                param.requires_grad = False
-
-        epoch_size      = num_train // Batch_size
-        epoch_size_val  = num_val // Batch_size
-
-        if epoch_size == 0 or epoch_size_val == 0:
+        epoch_step      = num_train // batch_size
+        epoch_step_val  = num_val // batch_size
+        
+        if epoch_step == 0 or epoch_step_val == 0:
             raise ValueError("数据集过小，无法进行训练，请扩充数据集。")
 
-        for epoch in range(Init_Epoch,Freeze_Epoch):
-            val_loss = fit_one_epoch(net,criterion,epoch,epoch_size,epoch_size_val,gen,gen_val,Freeze_Epoch,Cuda)
-            lr_scheduler.step(val_loss)
+        #------------------------------------#
+        #   冻结一定部分训练
+        #------------------------------------#
+        if Freeze_Train:
+            if backbone == "vgg":
+                for param in model.vgg[:28].parameters():
+                    param.requires_grad = False
+            else:
+                for param in model.mobilenet.parameters():
+                    param.requires_grad = False
+
+        for epoch in range(start_epoch, end_epoch):
+            fit_one_epoch(model_train, model, criterion, loss_history, optimizer, epoch, 
+                    epoch_step, epoch_step_val, gen, gen_val, end_epoch, Cuda)
+            lr_scheduler.step()
 
     if True:
-        lr              = 1e-4
-        Batch_size      = 16
-        Freeze_Epoch    = 50
-        Unfreeze_Epoch  = 100
+        batch_size  = Unfreeze_batch_size
+        lr          = Unfreeze_lr
+        start_epoch = Freeze_Epoch
+        end_epoch   = UnFreeze_Epoch
 
-        optimizer       = optim.Adam(net.parameters(), lr=lr)
-        lr_scheduler    = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
+        optimizer       = optim.Adam(model_train.parameters(), lr, weight_decay = 5e-4)
+        lr_scheduler    = optim.lr_scheduler.StepLR(optimizer, step_size = 1, gamma = 0.95)
 
-        train_dataset   = SSDDataset(lines[:num_train], (Config["min_dim"], Config["min_dim"]), True)
-        val_dataset     = SSDDataset(lines[num_train:], (Config["min_dim"], Config["min_dim"]), False)
+        train_dataset   = SSDDataset(train_lines, input_shape, anchors, batch_size, num_classes, train = True)
+        val_dataset     = SSDDataset(val_lines, input_shape, anchors, batch_size, num_classes, train = False)
+
+        gen             = DataLoader(train_dataset, shuffle = True, batch_size = batch_size, num_workers = num_workers, pin_memory=True,
+                                    drop_last=True, collate_fn=ssd_dataset_collate)
+        gen_val         = DataLoader(val_dataset  , shuffle = True, batch_size = batch_size, num_workers = num_workers, pin_memory=True, 
+                                    drop_last=True, collate_fn=ssd_dataset_collate)
+
+        epoch_step      = num_train // batch_size
+        epoch_step_val  = num_val // batch_size
         
-        gen             = DataLoader(train_dataset, shuffle=True, batch_size=Batch_size, num_workers=4, pin_memory=True,
-                                drop_last=True, collate_fn=ssd_dataset_collate)
-        gen_val         = DataLoader(val_dataset, shuffle=True, batch_size=Batch_size, num_workers=4, pin_memory=True,
-                                drop_last=True, collate_fn=ssd_dataset_collate)
-
-        if backbone == "vgg":
-            for param in model.vgg.parameters():
-                param.requires_grad = True
-        else:
-            for param in model.mobilenet.parameters():
-                param.requires_grad = True
-
-        epoch_size      = num_train // Batch_size
-        epoch_size_val  = num_val // Batch_size
-
-        if epoch_size == 0 or epoch_size_val == 0:
+        if epoch_step == 0 or epoch_step_val == 0:
             raise ValueError("数据集过小，无法进行训练，请扩充数据集。")
+
+        #------------------------------------#
+        #   解冻后训练
+        #------------------------------------#
+        if Freeze_Train:
+            if backbone == "vgg":
+                for param in model.vgg[:28].parameters():
+                    param.requires_grad = True
+            else:
+                for param in model.mobilenet.parameters():
+                    param.requires_grad = True
             
-        for epoch in range(Freeze_Epoch,Unfreeze_Epoch):
-            val_loss = fit_one_epoch(net,criterion,epoch,epoch_size,epoch_size_val,gen,gen_val,Unfreeze_Epoch,Cuda)
-            lr_scheduler.step(val_loss)
+        for epoch in range(start_epoch, end_epoch):
+            fit_one_epoch(model_train, model, criterion, loss_history, optimizer, epoch, 
+                    epoch_step, epoch_step_val, gen, gen_val, end_epoch, Cuda)
+            lr_scheduler.step()

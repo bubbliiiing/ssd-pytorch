@@ -1,180 +1,118 @@
-import os
-import scipy.signal
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from matplotlib import pyplot as plt
-from utils.box_utils import log_sum_exp, match
-from utils.config import Config
 
-MEANS = (104, 117, 123)
-
-class MultiBoxLoss(nn.Module):
-    def __init__(self, num_classes, overlap_thresh, prior_for_matching,
-                 bkg_label, neg_mining, neg_pos, neg_overlap, encode_target,
-                 use_gpu=True, negatives_for_hard=100.0):
-        super(MultiBoxLoss, self).__init__()
-        self.use_gpu = use_gpu
+class MultiboxLoss(nn.Module):
+    def __init__(self, num_classes, alpha=1.0, neg_pos_ratio=3.0,
+                 background_label_id=0, negatives_for_hard=100.0):
         self.num_classes = num_classes
-        self.threshold = overlap_thresh
-        self.background_label = bkg_label
-        self.encode_target = encode_target
-        self.use_prior_for_matching = prior_for_matching
-        self.do_neg_mining = neg_mining
-        self.negpos_ratio = neg_pos
-        self.neg_overlap = neg_overlap
+        self.alpha = alpha
+        self.neg_pos_ratio = neg_pos_ratio
+        if background_label_id != 0:
+            raise Exception('Only 0 as background label id is supported')
+        self.background_label_id = background_label_id
         self.negatives_for_hard = negatives_for_hard
-        self.variance = Config['variance']
 
-    def forward(self, predictions, targets):
-        #--------------------------------------------------#
-        #   取出预测结果的三个值：回归信息，置信度，先验框
-        #--------------------------------------------------#
-        loc_data, conf_data, priors = predictions
-        #--------------------------------------------------#
-        #   计算出batch_size和先验框的数量
-        #--------------------------------------------------#
-        num = loc_data.size(0)
-        num_priors = (priors.size(0))
-        #--------------------------------------------------#
-        #   创建一个tensor进行处理
-        #--------------------------------------------------#
-        loc_t = torch.zeros(num, num_priors, 4).type(torch.FloatTensor)
-        conf_t = torch.zeros(num, num_priors).long()
+    def _l1_smooth_loss(self, y_true, y_pred):
+        abs_loss = torch.abs(y_true - y_pred)
+        sq_loss = 0.5 * (y_true - y_pred)**2
+        l1_loss = torch.where(abs_loss < 1.0, sq_loss, abs_loss - 0.5)
+        return torch.sum(l1_loss, -1)
 
-        if self.use_gpu:
-            loc_t = loc_t.cuda()
-            conf_t = conf_t.cuda()
-            priors = priors.cuda()
+    def _softmax_loss(self, y_true, y_pred):
+        y_pred = torch.clamp(y_pred, min = 1e-7)
+        softmax_loss = -torch.sum(y_true * torch.log(y_pred),
+                                      axis=-1)
+        return softmax_loss
 
-        for idx in range(num):
-            # 获得真实框与标签
-            truths = targets[idx][:, :-1]
-            labels = targets[idx][:, -1]
+    def forward(self, y_true, y_pred):
+        # --------------------------------------------- #
+        #   y_true batch_size, 8732, 4 + self.num_classes + 1
+        #   y_pred batch_size, 8732, 4 + self.num_classes
+        # --------------------------------------------- #
+        num_boxes       = y_true.size()[1]
+        y_pred          = torch.cat([y_pred[0], nn.Softmax(-1)(y_pred[1])], dim = -1)
 
-            if(len(truths)==0):
-                continue
-
-            # 获得先验框
-            defaults = priors
-            #--------------------------------------------------#
-            #   利用真实框和先验框进行匹配。
-            #   如果真实框和先验框的重合度较高，则认为匹配上了。
-            #   该先验框用于负责检测出该真实框。
-            #--------------------------------------------------#
-            match(self.threshold, truths, defaults, self.variance, labels, loc_t, conf_t, idx)
-
-        # 所有conf_t>0的地方，代表内部包含物体
-        pos = conf_t > 0
+        # --------------------------------------------- #
+        #   分类的loss
+        #   batch_size,8732,21 -> batch_size,8732
+        # --------------------------------------------- #
+        conf_loss = self._softmax_loss(y_true[:, :, 4:-1], y_pred[:, :, 4:])
         
-        #--------------------------------------------------#
-        #   求和得到每一个图片内部有多少正样本
-        #   num_pos  (num, )
-        #--------------------------------------------------#
-        num_pos = pos.sum(dim=1, keepdim=True)
+        # --------------------------------------------- #
+        #   框的位置的loss
+        #   batch_size,8732,4 -> batch_size,8732
+        # --------------------------------------------- #
+        loc_loss = self._l1_smooth_loss(y_true[:, :, :4],
+                                        y_pred[:, :, :4])
+
+        # --------------------------------------------- #
+        #   获取所有的正标签的loss
+        # --------------------------------------------- #
+        pos_loc_loss = torch.sum(loc_loss * y_true[:, :, -1],
+                                     axis=1)
+        pos_conf_loss = torch.sum(conf_loss * y_true[:, :, -1],
+                                      axis=1)
+
+        # --------------------------------------------- #
+        #   每一张图的正样本的个数
+        #   num_pos     [batch_size,]
+        # --------------------------------------------- #
+        num_pos = torch.sum(y_true[:, :, -1], axis=-1)
+
+        # --------------------------------------------- #
+        #   每一张图的负样本的个数
+        #   num_neg     [batch_size,]
+        # --------------------------------------------- #
+        num_neg = torch.min(self.neg_pos_ratio * num_pos, num_boxes - num_pos)
+        # 找到了哪些值是大于0的
+        pos_num_neg_mask = num_neg > 0
+        # --------------------------------------------- #
+        #   如果所有的图，正样本的数量均为0
+        #   那么则默认选取100个先验框作为负样本
+        # --------------------------------------------- #
+        has_min = torch.sum(pos_num_neg_mask)
         
-        #--------------------------------------------------#
-        #   取出所有的正样本，并计算loss
-        #   pos_idx (num, num_priors, 4)
-        #--------------------------------------------------#
-        pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_data)
-        loc_p = loc_data[pos_idx].view(-1, 4)
-        loc_t = loc_t[pos_idx].view(-1, 4)
+        # --------------------------------------------- #
+        #   从这里往后，与视频中看到的代码有些许不同。
+        #   由于以前的负样本选取方式存在一些问题，
+        #   我对该部分代码进行重构。
+        #   求整个batch应该的负样本数量总和
+        # --------------------------------------------- #
+        num_neg_batch = torch.sum(num_neg) if has_min > 0 else self.negatives_for_hard
 
-        loss_l = F.smooth_l1_loss(loc_p, loc_t, size_average=False)
-        #--------------------------------------------------#
-        #   batch_conf  (num * num_priors, num_classes)
-        #   loss_c      (num, num_priors)
-        #--------------------------------------------------#
-        batch_conf = conf_data.view(-1, self.num_classes)
-        # 这个地方是在寻找难分类的先验框
-        loss_c = log_sum_exp(batch_conf) - batch_conf.gather(1, conf_t.view(-1, 1))
-        loss_c = loss_c.view(num, -1)
+        # --------------------------------------------- #
+        #   对预测结果进行判断，如果该先验框没有包含物体
+        #   那么它的不属于背景的预测概率过大的话
+        #   就是难分类样本
+        # --------------------------------------------- #
+        confs_start = 4 + self.background_label_id + 1
+        confs_end   = confs_start + self.num_classes - 1
 
-        # 难分类的先验框不把正样本考虑进去，只考虑难分类的负样本
-        loss_c[pos] = 0 
-        #--------------------------------------------------#
-        #   loss_idx    (num, num_priors)
-        #   idx_rank    (num, num_priors)
-        #--------------------------------------------------#
-        _, loss_idx = loss_c.sort(1, descending=True)
-        _, idx_rank = loss_idx.sort(1)
-        #--------------------------------------------------#
-        #   求和得到每一个图片内部有多少正样本
-        #   num_pos     (num, )
-        #   neg         (num, num_priors)
-        #--------------------------------------------------#
-        num_pos = pos.long().sum(1, keepdim=True)
-        # 限制负样本数量
-        num_neg = torch.clamp(self.negpos_ratio * num_pos, max = pos.size(1) - 1)
-        num_neg[num_neg.eq(0)] =  self.negatives_for_hard
-        neg = idx_rank < num_neg.expand_as(idx_rank)
+        # --------------------------------------------- #
+        #   batch_size,8732
+        #   把不是背景的概率求和，求和后的概率越大
+        #   代表越难分类。
+        # --------------------------------------------- #
+        max_confs = torch.sum(y_pred[:, :, confs_start:confs_end], dim=2)
 
-        #--------------------------------------------------#
-        #   求和得到每一个图片内部有多少正样本
-        #   pos_idx   (num, num_priors, num_classes)
-        #   neg_idx   (num, num_priors, num_classes)
-        #--------------------------------------------------#
-        pos_idx = pos.unsqueeze(2).expand_as(conf_data)
-        neg_idx = neg.unsqueeze(2).expand_as(conf_data)
+        # --------------------------------------------------- #
+        #   只有没有包含物体的先验框才得到保留
+        #   我们在整个batch里面选取最难分类的num_neg_batch个
+        #   先验框作为负样本。
+        # --------------------------------------------------- #
+        max_confs   = (max_confs * (1 - y_true[:, :, -1])).view([-1])
 
-        # 选取出用于训练的正样本与负样本，计算loss
-        conf_p = conf_data[(pos_idx + neg_idx).gt(0)].view(-1, self.num_classes)
-        targets_weighted = conf_t[(pos + neg).gt(0)]
-        loss_c = F.cross_entropy(conf_p, targets_weighted, size_average=False)
+        _, indices  = torch.topk(max_confs, k = int(num_neg_batch.cpu().numpy().tolist()))
 
-        N = torch.max(num_pos.data.sum(), torch.ones_like(num_pos.data.sum()))
-        loss_l /= N
-        loss_c /= N
-        return loss_l, loss_c
+        neg_conf_loss = torch.gather(conf_loss.view([-1]), 0, indices)
 
-class LossHistory():
-    def __init__(self, log_dir):
-        import datetime
-        curr_time = datetime.datetime.now()
-        time_str = datetime.datetime.strftime(curr_time,'%Y_%m_%d_%H_%M_%S')
-        self.log_dir    = log_dir
-        self.time_str   = time_str
-        self.save_path  = os.path.join(self.log_dir, "loss_" + str(self.time_str))
-        self.losses     = []
-        self.val_loss   = []
-        
-        os.makedirs(self.save_path)
-
-    def append_loss(self, loss, val_loss):
-        self.losses.append(loss)
-        self.val_loss.append(val_loss)
-        with open(os.path.join(self.save_path, "epoch_loss_" + str(self.time_str) + ".txt"), 'a') as f:
-            f.write(str(loss))
-            f.write("\n")
-        with open(os.path.join(self.save_path, "epoch_val_loss_" + str(self.time_str) + ".txt"), 'a') as f:
-            f.write(str(val_loss))
-            f.write("\n")
-        self.loss_plot()
-
-    def loss_plot(self):
-        iters = range(len(self.losses))
-
-        plt.figure()
-        plt.plot(iters, self.losses, 'red', linewidth = 2, label='train loss')
-        plt.plot(iters, self.val_loss, 'coral', linewidth = 2, label='val loss')
-        try:
-            if len(self.losses) < 25:
-                num = 5
-            else:
-                num = 15
-            
-            plt.plot(iters, scipy.signal.savgol_filter(self.losses, num, 3), 'green', linestyle = '--', linewidth = 2, label='smooth train loss')
-            plt.plot(iters, scipy.signal.savgol_filter(self.val_loss, num, 3), '#8B4513', linestyle = '--', linewidth = 2, label='smooth val loss')
-        except:
-            pass
-
-        plt.grid(True)
-        plt.xlabel('Epoch')
-        plt.ylabel('Loss')
-        plt.legend(loc="upper right")
-
-        plt.savefig(os.path.join(self.save_path, "epoch_loss_" + str(self.time_str) + ".png"))
+        # 进行归一化
+        num_pos     = torch.where(num_pos != 0, num_pos, torch.ones_like(num_pos))
+        total_loss  = torch.sum(pos_conf_loss) + torch.sum(neg_conf_loss) + torch.sum(self.alpha * pos_loc_loss)
+        total_loss  = total_loss / torch.sum(num_pos)
+        return total_loss
 
 def weights_init(net, init_type='normal', init_gain=0.02):
     def init_func(m):
