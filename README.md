@@ -29,7 +29,7 @@
 torch == 1.2.0
 
 ## 文件下载
-训练所需的ssd_weights.pth可以在百度云下载。  
+训练所需的ssd_weights.pth和主干的权值可以在百度云下载。  
 链接: https://pan.baidu.com/s/1iUVE50oLkzqhtZbUL9el9w     
 提取码: jgn8     
 
