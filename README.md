@@ -1,8 +1,12 @@
 ## SSD：Single-Shot MultiBox Detector目标检测模型在Pytorch当中的实现
 ---
 
+**2021年10月12日更新：**   
+**进行了大幅度的更新，对代码的模块进行修改，加了大量注释。**   
+
 **2021年5月24日更新：**   
 **添加了mobilenetv2作为ssd的主干特征提取网络，作为轻量级ssd的实现，可通过设置train.py和ssd.py中的backbone进行主干变换。**   
+
 **2021年2月8日更新：**   
 **加入letterbox_image的选项，关闭letterbox_image后网络的map一般可以得到提升。**
 
