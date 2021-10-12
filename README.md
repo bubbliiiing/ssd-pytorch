@@ -22,7 +22,7 @@
 ## 性能情况
 | 训练数据集 | 权值文件名称 | 测试数据集 | 输入图片大小 | mAP 0.5:0.95 | mAP 0.5 |
 | :-----: | :-----: | :------: | :------: | :------: | :-----: |
-| VOC07+12 | [ssd_weights.pth](https://github.com/bubbliiiing/ssd-pytorch/releases/download/v1.0/ssd_weights.pth) | VOC-Test07 | 300x300| - | 79.39
+| VOC07+12 | [ssd_weights.pth](https://github.com/bubbliiiing/ssd-pytorch/releases/download/v1.0/ssd_weights.pth) | VOC-Test07 | 300x300| - | 78.55
 | VOC07+12 | [mobilenetv2_ssd_weights.pth](https://github.com/bubbliiiing/ssd-pytorch/releases/download/v1.0/mobilenetv2_ssd_weights.pth) | VOC-Test07 | 300x300| - | 71.32
 
 ## 所需环境
