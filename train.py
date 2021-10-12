@@ -157,7 +157,7 @@ if __name__ == "__main__":
         end_epoch   = Freeze_Epoch
 
         optimizer       = optim.Adam(model_train.parameters(), lr, weight_decay = 5e-4)
-        lr_scheduler    = optim.lr_scheduler.StepLR(optimizer, step_size = 1, gamma = 0.95)
+        lr_scheduler    = optim.lr_scheduler.StepLR(optimizer, step_size = 1, gamma = 0.94)
 
         train_dataset   = SSDDataset(train_lines, input_shape, anchors, batch_size, num_classes, train = True)
         val_dataset     = SSDDataset(val_lines, input_shape, anchors, batch_size, num_classes, train = False)
@@ -196,7 +196,7 @@ if __name__ == "__main__":
         end_epoch   = UnFreeze_Epoch
 
         optimizer       = optim.Adam(model_train.parameters(), lr, weight_decay = 5e-4)
-        lr_scheduler    = optim.lr_scheduler.StepLR(optimizer, step_size = 1, gamma = 0.95)
+        lr_scheduler    = optim.lr_scheduler.StepLR(optimizer, step_size = 1, gamma = 0.94)
 
         train_dataset   = SSDDataset(train_lines, input_shape, anchors, batch_size, num_classes, train = True)
         val_dataset     = SSDDataset(val_lines, input_shape, anchors, batch_size, num_classes, train = False)
