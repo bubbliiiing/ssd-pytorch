@@ -12,7 +12,7 @@ class MultiboxLoss(nn.Module):
         if background_label_id != 0:
             raise Exception('Only 0 as background label id is supported')
         self.background_label_id = background_label_id
-        self.negatives_for_hard = negatives_for_hard
+        self.negatives_for_hard = torch.FloatTensor([negatives_for_hard])[0]
 
     def _l1_smooth_loss(self, y_true, y_pred):
         abs_loss = torch.abs(y_true - y_pred)
