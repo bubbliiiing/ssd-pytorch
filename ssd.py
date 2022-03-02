@@ -121,7 +121,7 @@ class SSD(object):
     #---------------------------------------------------#
     #   检测图片
     #---------------------------------------------------#
-    def detect_image(self, image):
+    def detect_image(self, image, crop = False):
         #---------------------------------------------------#
         #   计算输入图片的高和宽
         #---------------------------------------------------#
@@ -172,6 +172,23 @@ class SSD(object):
         font = ImageFont.truetype(font='model_data/simhei.ttf', size=np.floor(3e-2 * np.shape(image)[1] + 0.5).astype('int32'))
         thickness = max((np.shape(image)[0] + np.shape(image)[1]) // self.input_shape[0], 1)
         
+        #---------------------------------------------------------#
+        #   是否进行目标的裁剪
+        #---------------------------------------------------------#
+        if crop:
+            for i, c in list(enumerate(top_boxes)):
+                top, left, bottom, right = top_boxes[i]
+                top     = max(0, np.floor(top).astype('int32'))
+                left    = max(0, np.floor(left).astype('int32'))
+                bottom  = min(image.size[1], np.floor(bottom).astype('int32'))
+                right   = min(image.size[0], np.floor(right).astype('int32'))
+                
+                dir_save_path = "img_crop"
+                if not os.path.exists(dir_save_path):
+                    os.makedirs(dir_save_path)
+                crop_image = image.crop([left, top, right, bottom])
+                crop_image.save(os.path.join(dir_save_path, "crop_" + str(i) + ".png"), quality=95, subsampling=0)
+                print("save crop_" + str(i) + ".png to " + dir_save_path)
         #---------------------------------------------------------#
         #   图像绘制
         #---------------------------------------------------------#
