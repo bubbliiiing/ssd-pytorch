@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.hub import load_state_dict_from_url
 
 
+
 '''
 该代码用于获得VGG主干特征提取网络的输出。
 输入变量i代表的是输入图片的通道数，通常为3。
@@ -49,3 +50,6 @@ if __name__ == "__main__":
     net = vgg()
     for i, layer in enumerate(net):
         print(i, layer)
+'''
+test the push function
+'''
