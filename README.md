@@ -2,13 +2,14 @@
 ---
 
 ## 目录
-1. [性能情况 Performance](#性能情况)
-2. [所需环境 Environment](#所需环境)
-3. [文件下载 Download](#文件下载)
-4. [训练步骤 How2train](#训练步骤)
-5. [预测步骤 How2predict](#预测步骤)
-6. [评估步骤 How2eval](#评估步骤)
-7. [参考资料 Reference](#Reference)
+1. [仓库更新 Top News](#仓库更新)
+2. [性能情况 Performance](#性能情况)
+3. [所需环境 Environment](#所需环境)
+4. [文件下载 Download](#文件下载)
+5. [训练步骤 How2train](#训练步骤)
+6. [预测步骤 How2predict](#预测步骤)
+7. [评估步骤 How2eval](#评估步骤)
+8. [参考资料 Reference](#Reference)
 
 ## Top News
 **`2022-03`**:**进行了大幅度的更新，支持step、cos学习率下降法、支持adam、sgd优化器选择、支持学习率根据batch_size自适应调整、新增图片裁剪。**  
