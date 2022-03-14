@@ -3,6 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 
+import sys
+
+
 from nets.mobilenetv2 import InvertedResidual, mobilenet_v2
 from nets.vgg import vgg as add_vgg
 
@@ -175,3 +178,5 @@ class SSD300(nn.Module):
             conf.view(conf.size(0), -1, self.num_classes),
         )
         return output
+if __name__ == "__main__":
+    net = SSD300()
