@@ -1,5 +1,5 @@
 from torch import nn
-from torchvision.models.utils import load_state_dict_from_url
+from torch.hub import load_state_dict_from_url
 
 def _make_divisible(v, divisor, min_value=None):
     if min_value is None:
