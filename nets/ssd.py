@@ -5,7 +5,6 @@ import torch.nn.init as init
 
 from nets.mobilenetv2 import InvertedResidual, mobilenet_v2
 from nets.vgg import vgg as add_vgg
-from nets.vgg import vgg as add_vgg
 
 class L2Norm(nn.Module):
     def __init__(self,n_channels, scale):
