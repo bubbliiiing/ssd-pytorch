@@ -8,6 +8,28 @@ from vgg import vgg as add_vgg
 
 #from nets.mobilenetv2 import InvertedResidual, mobilenet_v2
 #from nets.vgg import vgg as add_vgg
+class Decoder(nn.Module):
+  def __init__(self, in_channels, out_channels):
+    super(Decoder, self).__init__()
+    self.up = nn.ConvTranspose2d(256, 128, kernel_size=3, stride=3)
+    self.up2 = nn.ConvTranspose2d(128, 64, kernel_size=3, stride=3)
+    self.up3 = nn.ConvTranspose2d(64,128,kernel_size=2, stride=2,output_padding=1)
+    self.conv_relu = nn.Sequential(
+      nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+      nn.ReLU(inplace=True)
+    )
+    self.BatchNorm=nn.BatchNorm2d(out_channels,affine=True)
+  def forward(self, x1, x2):    #x1 19,19,1024     x2 1,1,256
+    x2_1 = self.up(x2)          #3,3,128
+    x2_2 = self.up2(x2_1)       #9,9,64
+    x2 = self.up3(x2_2)       #19,19,128
+    x1 = self.conv_relu(x1)
+    print(x1.shape)
+    print(x2.shape)
+    x  = x2+x1
+    x  =self.BatchNorm(x1)
+    print(x.shape)
+    return x
 
 class L2Norm(nn.Module):
     def __init__(self,n_channels, scale):
