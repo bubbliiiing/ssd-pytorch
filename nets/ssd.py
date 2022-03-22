@@ -84,13 +84,13 @@ def add_extras(in_channels, backbone_name):
     up_layer += [nn.ConvTranspose2d(256, 128, kernel_size=3, stride=3)]
     up_layer += [nn.Conv2d(128, 256, kernel_size=3, stride=1,padding=1)]
         # Block 11
-        # 3,3,256 -> 9,9,128 -> 9,9,512
+        # 3,3,256 -> 9,9,128 -> 9,9,256
     up_layer += [nn.ConvTranspose2d(256, 128, kernel_size=3, stride=3)]
     up_layer += [nn.Conv2d(128, 256, kernel_size=3, stride=1,padding=1)]
         # Block 12
-        # 9,9,512 -> 19,19,256 -> 19,19,1024
-    up_layer += [nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2,output_padding=1)]
-    up_layer += [nn.Conv2d(256, 1024, kernel_size=3, stride=1,padding=1)]
+        # 9,9,256 -> 19,19,128 -> 19,19,512
+    up_layer += [nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2,output_padding=1)]
+    up_layer += [nn.Conv2d(128, 512, kernel_size=3, stride=1,padding=1)]
 
 
     return nn.ModuleList(layers),nn.ModuleList(up_layer)
@@ -162,16 +162,40 @@ class SSD300(nn.Module):
         sources.append(x)
 
 
+        #---------------------------#
+        #   获得第四个融合模块的低层特征图
+        #   shape 为 19, 19, 512
+        #---------------------------#
+        feature4_1 = nn.Conv2d(1024,512,kernel_size=3,stride=1,padding=1)(x)
+        print(feature4_1.shape)         
+
+
         #-------------------------------------------------------------#
         #   在add_extras获得的特征层里
         #   第1层、第3层、第5层、第7层可以用来进行回归预测和分类预测。
         #   shape分别为(10,10,512), (5,5,256), (3,3,256), (1,1,256)
         #-------------------------------------------------------------#      
+
+        
         for k, v in enumerate(self.extras):
             x = F.relu(v(x), inplace=True)
             if self.backbone_name == "vgg":
                 if k % 2 == 1:
                     sources.append(x)
+
+        #---------------------------#
+        #  获得第四个融合模块的高层特征图
+        #  shape 为 19, 19, 512
+        #---------------------------#
+        for f in (self.fusion):
+            x = F.relu(f(x),inplace=True)
+        feature4_2 = x
+        print(feature4_2.shape)
+        feature4 = feature4_1+feature4_2
+        print(feature4.shape)
+
+
+
 
         #-------------------------------------------------------------#
         #   为获得的6个有效特征层添加回归预测和分类预测
@@ -200,4 +224,5 @@ if __name__=="__main__":
     #print(net)
     input=torch.rand(1,3,300,300)
     output=net(input)
+    #print(output)
     print("ok")
