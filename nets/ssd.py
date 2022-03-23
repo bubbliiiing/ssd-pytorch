@@ -2,34 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
-
+import mff
 from mobilenetv2 import InvertedResidual, mobilenet_v2
 from vgg import vgg as add_vgg
 
 #from nets.mobilenetv2 import InvertedResidual, mobilenet_v2
 #from nets.vgg import vgg as add_vgg
-class Decoder(nn.Module):
-  def __init__(self, in_channels, out_channels):
-    super(Decoder, self).__init__()
-    self.up = nn.ConvTranspose2d(256, 128, kernel_size=3, stride=3)
-    self.up2 = nn.ConvTranspose2d(128, 64, kernel_size=3, stride=3)
-    self.up3 = nn.ConvTranspose2d(64,128,kernel_size=2, stride=2,output_padding=1)
-    self.conv_relu = nn.Sequential(
-      nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
-      nn.ReLU(inplace=True)
-    )
-    self.BatchNorm=nn.BatchNorm2d(out_channels,affine=True)
-  def forward(self, x1, x2):    #x1 19,19,1024     x2 1,1,256
-    x2_1 = self.up(x2)          #3,3,128
-    x2_2 = self.up2(x2_1)       #9,9,64
-    x2 = self.up3(x2_2)       #19,19,128
-    x1 = self.conv_relu(x1)
-    print(x1.shape)
-    print(x2.shape)
-    x  = x2+x1
-    x  =self.BatchNorm(x1)
-    print(x.shape)
-    return x
 
 class L2Norm(nn.Module):
     def __init__(self,n_channels, scale):
@@ -52,7 +30,6 @@ class L2Norm(nn.Module):
 
 def add_extras(in_channels, backbone_name):
     layers = []
-    up_layer = []
     if backbone_name == 'vgg':
         # Block 6
         # 19,19,1024 -> 19,19,256 -> 10,10,512
@@ -79,21 +56,9 @@ def add_extras(in_channels, backbone_name):
         layers += [InvertedResidual(256, 256, stride=2, expand_ratio=0.5)]
         layers += [InvertedResidual(256, 64, stride=2, expand_ratio=0.25)]
 
-        # Block 10
-        # 1,1,256 -> 3,3,128 ->3,3,256
-    up_layer += [nn.ConvTranspose2d(256, 128, kernel_size=3, stride=3)]
-    up_layer += [nn.Conv2d(128, 256, kernel_size=3, stride=1,padding=1)]
-        # Block 11
-        # 3,3,256 -> 9,9,128 -> 9,9,256
-    up_layer += [nn.ConvTranspose2d(256, 128, kernel_size=3, stride=3)]
-    up_layer += [nn.Conv2d(128, 256, kernel_size=3, stride=1,padding=1)]
-        # Block 12
-        # 9,9,256 -> 19,19,128 -> 19,19,512
-    up_layer += [nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2,output_padding=1)]
-    up_layer += [nn.Conv2d(128, 512, kernel_size=3, stride=1,padding=1)]
 
 
-    return nn.ModuleList(layers),nn.ModuleList(up_layer)
+    return nn.ModuleList(layers)
 
 class SSD300(nn.Module):
     def __init__(self, num_classes, backbone_name, pretrained = False):
@@ -101,7 +66,8 @@ class SSD300(nn.Module):
         self.num_classes    = num_classes
         if backbone_name    == "vgg":
             self.vgg        = add_vgg(pretrained)
-            self.extras,self.fusion     = add_extras(1024, backbone_name)
+            self.extras     = add_extras(1024, backbone_name)
+            self.fusion4    = mff.Fusion4(1024,256,512)
             self.L2Norm     = L2Norm(512, 20)
             mbox            = [4, 6, 6, 6, 4, 4]
             
@@ -121,10 +87,10 @@ class SSD300(nn.Module):
             #   第1层、第3层、第5层、第7层可以用来进行回归预测和分类预测。
             #   shape分别为(10,10,512), (5,5,256), (3,3,256), (1,1,256)
             #-------------------------------------------------------------#  
-            for k, v in enumerate(self.extras[1::2], 2):
+            #  k = 2, 3, 4, 5
+            for k, v in enumerate(self.extras[1::2], 2):       
                 loc_layers  += [nn.Conv2d(v.out_channels, mbox[k] * 4, kernel_size = 3, padding = 1)]
                 conf_layers += [nn.Conv2d(v.out_channels, mbox[k] * num_classes, kernel_size = 3, padding = 1)]
-
         self.loc            = nn.ModuleList(loc_layers)
         self.conf           = nn.ModuleList(conf_layers)
         self.backbone_name  = backbone_name
@@ -133,7 +99,6 @@ class SSD300(nn.Module):
         #---------------------------#
         #   x是300,300,3
         #---------------------------#
-        #print("forward")
         sources = list()
         loc     = list()
         conf    = list()
@@ -164,19 +129,16 @@ class SSD300(nn.Module):
 
         #---------------------------#
         #   获得第四个融合模块的低层特征图
-        #   shape 为 19, 19, 512
+        #   shape 为 19, 19, 1024
         #---------------------------#
-        feature4_1 = nn.Conv2d(1024,512,kernel_size=3,stride=1,padding=1)(x)
-        print(feature4_1.shape)         
+        feature4_1 = x       
 
 
         #-------------------------------------------------------------#
         #   在add_extras获得的特征层里
         #   第1层、第3层、第5层、第7层可以用来进行回归预测和分类预测。
         #   shape分别为(10,10,512), (5,5,256), (3,3,256), (1,1,256)
-        #-------------------------------------------------------------#      
-
-        
+        #-------------------------------------------------------------#              
         for k, v in enumerate(self.extras):
             x = F.relu(v(x), inplace=True)
             if self.backbone_name == "vgg":
@@ -186,15 +148,12 @@ class SSD300(nn.Module):
         #---------------------------#
         #  获得第四个融合模块的高层特征图
         #  shape 为 19, 19, 512
+        #  融合之后经过卷积等操作变为19，19，1024
         #---------------------------#
-        for f in (self.fusion):
-            x = F.relu(f(x),inplace=True)
         feature4_2 = x
-        print(feature4_2.shape)
-        feature4 = feature4_1+feature4_2
+        feature4 = self.fusion4(feature4_1,feature4_2)
         print(feature4.shape)
-
-
+        sources.append(feature4)
 
 
         #-------------------------------------------------------------#
@@ -224,5 +183,4 @@ if __name__=="__main__":
     #print(net)
     input=torch.rand(1,3,300,300)
     output=net(input)
-    #print(output)
     print("ok")
