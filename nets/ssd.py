@@ -147,10 +147,11 @@ class SSD300(nn.Module):
 
         #---------------------------#
         #  获得第四个融合模块的高层特征图
-        #  shape 为 19, 19, 512
+        #  shape 为 1, 1, 256
         #  融合之后经过卷积等操作变为19，19，1024
         #---------------------------#
         feature4_2 = x
+        print(feature4_2.shape)
         feature4 = self.fusion4(feature4_1,feature4_2)
         print(feature4.shape)
         sources.append(feature4)
