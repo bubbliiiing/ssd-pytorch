@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 import mff
-from mobilenetv2 import InvertedResidual, mobilenet_v2
 from vgg import vgg as add_vgg
 
 #from nets.mobilenetv2 import InvertedResidual, mobilenet_v2
@@ -50,13 +49,6 @@ def add_extras(in_channels, backbone_name):
         # 3,3,256 -> 3,3,128 -> 1,1,256
         layers += [nn.Conv2d(256, 128, kernel_size=1, stride=1)]
         layers += [nn.Conv2d(128, 256, kernel_size=3, stride=1)]
-    else:
-        layers += [InvertedResidual(in_channels, 512, stride=2, expand_ratio=0.2)]
-        layers += [InvertedResidual(512, 256, stride=2, expand_ratio=0.25)]
-        layers += [InvertedResidual(256, 256, stride=2, expand_ratio=0.5)]
-        layers += [InvertedResidual(256, 64, stride=2, expand_ratio=0.25)]
-
-
 
     return nn.ModuleList(layers)
 
@@ -67,8 +59,10 @@ class SSD300(nn.Module):
         if backbone_name    == "vgg":
             self.vgg        = add_vgg(pretrained)
             self.extras     = add_extras(1024, backbone_name)
-            self.fusion4    = mff.Fusion4(1024,256,512)
-            self.L2Norm     = L2Norm(512, 20)
+            self.upsample   = mff.deconv(256)
+            self.fusion     = [mff.Fusion1(128,512,128),mff.Fusion2(256,256,128),
+                                mff.Fusion3(512,256,256),mff.Fusion4(1024,256,512)]
+            self.L2Norm     = [L2Norm(128, 20),L2Norm(256, 20),L2Norm(512, 20),L2Norm(1024, 20)]
             mbox            = [4, 6, 6, 6, 4, 4]
             
             loc_layers      = []
@@ -88,9 +82,17 @@ class SSD300(nn.Module):
             #   shape分别为(10,10,512), (5,5,256), (3,3,256), (1,1,256)
             #-------------------------------------------------------------#  
             #  k = 2, 3, 4, 5
-            for k, v in enumerate(self.extras[1::2], 2):       
+            for k, v in enumerate(self.extras[1::2], 2):     
                 loc_layers  += [nn.Conv2d(v.out_channels, mbox[k] * 4, kernel_size = 3, padding = 1)]
                 conf_layers += [nn.Conv2d(v.out_channels, mbox[k] * num_classes, kernel_size = 3, padding = 1)]
+            loc_layers      += [nn.Conv2d(128, 4 * 4, kernel_size = 3, padding = 1),
+                                nn.Conv2d(256, 4 * 4, kernel_size = 3, padding = 1),
+                                nn.Conv2d(512, 6 * 4, kernel_size = 3, padding = 1),
+                                nn.Conv2d(1024, 6 * 4, kernel_size = 3, padding = 1)]
+            conf_layers     += [nn.Conv2d(128, 4 * num_classes, kernel_size = 3, padding = 1),
+                                nn.Conv2d(256, 4 * num_classes, kernel_size = 3, padding = 1),
+                                nn.Conv2d(512, 6 * num_classes, kernel_size = 3, padding = 1),
+                                nn.Conv2d(1024, 6 * num_classes, kernel_size = 3, padding = 1)]
         self.loc            = nn.ModuleList(loc_layers)
         self.conf           = nn.ModuleList(conf_layers)
         self.backbone_name  = backbone_name
@@ -102,41 +104,62 @@ class SSD300(nn.Module):
         sources = list()
         loc     = list()
         conf    = list()
+        fusion_1= list()        # 存储低层特征图
+        fusion_2= list()        # 存储高层特征图
+
 
         #---------------------------#
-        #   获得conv4_3的内容
-        #   shape为38,38,512
+        #   先经过vgg网络部分
+        #   vgg网络分为四个part
+        #   每个part提取一个低层特征图
         #---------------------------#
+
+        #   Part 1   layers : 0-8
+        #   获得第一个低层特征图的内容  
+        #   shape为150,150,128
+        #   融合
         if self.backbone_name == "vgg":
-            for k in range(23):
+            for k in range(9):
                 x = self.vgg[k](x)
-        #---------------------------#
-        #   conv4_3的内容
-        #   需要进行L2标准化
-        #---------------------------#
-        s = self.L2Norm(x)
-        sources.append(s)
+        s = self.L2Norm[0](x)
+        fusion_1.append(s)
 
-        #---------------------------#
-        #   获得conv7的内容
+        #   Part 2   layers : 9-15
+        #   获得第二个高层特征图的内容   
+        #   shape为75，75,256
+        #   融合
+        if self.backbone_name == "vgg":
+            for k in range(9,16):
+                x = self.vgg[k](x)
+        s = self.L2Norm[1](x)
+        fusion_1.append(s)
+
+        #   Part 3    layers : 16-22
+        #   获得第三个高层特征图的内容   
+        #   shape为38,38,512
+        #   融合  及  预测
+        if self.backbone_name == "vgg":
+            for k in range(16,23):
+                x = self.vgg[k](x)
+        s = self.L2Norm[2](x)
+        sources.append(s)
+        fusion_1.append(s)
+
+        #   Part 4    layers : 23-end
+        #   获得第四个高层特征图的内容   
         #   shape为19,19,1024
-        #---------------------------#
+        #   融合  及  预测
         if self.backbone_name == "vgg":
             for k in range(23, len(self.vgg)):
                 x = self.vgg[k](x)      #<class 'torch.Tensor'>  torch.Size([1, 1024, 19, 19])
-        sources.append(x)
-
-
-        #---------------------------#
-        #   获得第四个融合模块的低层特征图
-        #   shape 为 19, 19, 1024
-        #---------------------------#
-        feature4_1 = x       
+        s = self.L2Norm[3](x)
+        sources.append(s)
+        fusion_1.append(s)    
 
 
         #-------------------------------------------------------------#
-        #   在add_extras获得的特征层里
-        #   第1层、第3层、第5层、第7层可以用来进行回归预测和分类预测。
+        #   经过 extra 网络
+        #   第1层、第3层、第5层、第7层的特征层  可以用来进行回归预测和分类预测。
         #   shape分别为(10,10,512), (5,5,256), (3,3,256), (1,1,256)
         #-------------------------------------------------------------#              
         for k, v in enumerate(self.extras):
@@ -145,22 +168,33 @@ class SSD300(nn.Module):
                 if k % 2 == 1:
                     sources.append(x)
 
-        #---------------------------#
-        #  获得第四个融合模块的高层特征图
-        #  shape 为 1, 1, 256
-        #  融合之后经过卷积等操作变为19，19，1024
-        #---------------------------#
-        feature4_2 = x
-        print(feature4_2.shape)
-        feature4 = self.fusion4(feature4_1,feature4_2)
-        print(feature4.shape)
-        sources.append(feature4)
+        #-------------------------------------------------------------#
+        #   经过  upsample  上采样网络
+        #   输入层、第1层、第3层、第5层的特征层，为待融合的高层特征册
+        #   shape分别为(1,1,256), (3,3,256), (5,5,256), (10,10,512)
+        #-------------------------------------------------------------#     
+        fusion_2.append(x)        
+        for k,f in enumerate(self.upsample):      
+            x = F.relu(f(x),inplace=True)
+            if k%2 == 1:
+                fusion_2.append(x)
+
+
+        #-------------------------------------------------------------#
+        #   获得 4个 融合特征层
+        #   shape分别为(150,150,128), (75,75,256), (38,38,512), (19,19,1024)
+        #-------------------------------------------------------------#     
+        for n,fusion in enumerate(self.fusion):
+            feature = fusion(fusion_1[n],fusion_2[3-n])
+            sources.append(feature)
+
 
 
         #-------------------------------------------------------------#
         #   为获得的6个有效特征层添加回归预测和分类预测
         #-------------------------------------------------------------#      
         for (x, l, c) in zip(sources, self.loc, self.conf):
+            print(x.shape)
             loc.append(l(x).permute(0, 2, 3, 1).contiguous())
             conf.append(c(x).permute(0, 2, 3, 1).contiguous())
 
@@ -182,6 +216,6 @@ class SSD300(nn.Module):
 if __name__=="__main__":
     net=SSD300(20,"vgg")
     #print(net)
-    input=torch.rand(1,3,300,300)
+    input=torch.rand(2,3,300,300)
     output=net(input)
     print("ok")
