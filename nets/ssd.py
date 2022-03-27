@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
-import mff
+from nets import mff
 from vgg import vgg as add_vgg
 
 #from nets.mobilenetv2 import InvertedResidual, mobilenet_v2
