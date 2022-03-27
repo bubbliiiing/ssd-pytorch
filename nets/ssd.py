@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
+#import mff
+#from vgg import vgg as add_vgg
 from nets import mff
-from vgg import vgg as add_vgg
+from nets.vgg import vgg as add_vgg
 
-#from nets.mobilenetv2 import InvertedResidual, mobilenet_v2
-#from nets.vgg import vgg as add_vgg
 
 class L2Norm(nn.Module):
     def __init__(self,n_channels, scale):
@@ -62,7 +62,8 @@ class SSD300(nn.Module):
             self.upsample   = mff.deconv(256)
             self.fusion     = [mff.Fusion1(128,512,128),mff.Fusion2(256,256,128),
                                 mff.Fusion3(512,256,256),mff.Fusion4(1024,256,512)]
-            self.L2Norm     = [L2Norm(128, 20),L2Norm(256, 20),L2Norm(512, 20),L2Norm(1024, 20)]
+            #self.L2Norm     = [L2Norm(128, 20),L2Norm(256, 20),L2Norm(512, 20),L2Norm(1024, 20)]
+            self.L2Norm     = L2Norm(512,20)
             mbox            = [4, 6, 6, 6, 4, 4]
             
             loc_layers      = []
@@ -121,7 +122,7 @@ class SSD300(nn.Module):
         if self.backbone_name == "vgg":
             for k in range(9):
                 x = self.vgg[k](x)
-        s = self.L2Norm[0](x)
+        s = x
         fusion_1.append(s)
 
         #   Part 2   layers : 9-15
@@ -131,7 +132,7 @@ class SSD300(nn.Module):
         if self.backbone_name == "vgg":
             for k in range(9,16):
                 x = self.vgg[k](x)
-        s = self.L2Norm[1](x)
+        s = x
         fusion_1.append(s)
 
         #   Part 3    layers : 16-22
@@ -141,7 +142,7 @@ class SSD300(nn.Module):
         if self.backbone_name == "vgg":
             for k in range(16,23):
                 x = self.vgg[k](x)
-        s = self.L2Norm[2](x)
+        s = self.L2Norm(x)
         sources.append(s)
         fusion_1.append(s)
 
@@ -152,7 +153,7 @@ class SSD300(nn.Module):
         if self.backbone_name == "vgg":
             for k in range(23, len(self.vgg)):
                 x = self.vgg[k](x)      #<class 'torch.Tensor'>  torch.Size([1, 1024, 19, 19])
-        s = self.L2Norm[3](x)
+        s = x
         sources.append(s)
         fusion_1.append(s)    
 
