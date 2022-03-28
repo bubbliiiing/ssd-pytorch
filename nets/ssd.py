@@ -215,8 +215,4 @@ class SSD300(nn.Module):
         return output
 
 if __name__=="__main__":
-    net=SSD300(20,"vgg")
-    #print(net)
-    input=torch.rand(2,3,300,300)
-    output=net(input)
     print("ok")
