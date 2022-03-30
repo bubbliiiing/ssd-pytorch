@@ -166,5 +166,5 @@ def deconv(in_channels):
     # 5,5,256 -> 10,10,128 -> 10,10,512
     layers += [nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)]
     layers += [nn.Conv2d(128, 512, kernel_size=1, stride=1)]
-    return layers
+    return nn.ModuleList(layers)
 
