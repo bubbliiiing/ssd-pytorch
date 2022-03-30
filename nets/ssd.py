@@ -62,6 +62,10 @@ class SSD300(nn.Module):
             self.upsample   = mff.deconv(256)
             self.fusion     = [mff.Fusion1(128,512,128),mff.Fusion2(256,256,128),
                                 mff.Fusion3(512,256,256),mff.Fusion4(1024,256,512)]
+            self.fusion1    = mff.Fusion1(128,512,128)
+            self.fusion2    = mff.Fusion2(256,256,128)
+            self.fusion3    = mff.Fusion3(512,256,256)
+            self.fusion4    = mff.Fusion4(1024,256,512)
             #self.L2Norm     = [L2Norm(128, 20),L2Norm(256, 20),L2Norm(512, 20),L2Norm(1024, 20)]
             self.L2Norm     = L2Norm(512,20)
             mbox            = [4, 6, 6, 6, 4, 4]
