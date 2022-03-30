@@ -18,6 +18,7 @@ class AnchorBox():
         #   获取输入进来的特征层的宽和高
         #   比如38x38
         # --------------------------------- #
+        print(layer_shape)
         layer_height    = layer_shape[0]
         layer_width     = layer_shape[1]
         # --------------------------------- #
@@ -136,7 +137,7 @@ def get_anchors(input_shape = [300,300], anchors_size = [30, 60, 111, 162, 213, 
         anchor_boxes = AnchorBox(input_shape, anchors_size[i], max_size = anchors_size[i+1], 
                     aspect_ratios = aspect_ratios[i]).call([feature_heights[i], feature_widths[i]])
         anchors.append(anchor_boxes)
-
+        print(np.shape(anchor_boxes))
     anchors = np.concatenate(anchors, axis=0)
     return anchors
 
@@ -276,6 +277,5 @@ if __name__ == '__main__':
     for i in range(len(feature_heights)):
         anchors.append(AnchorBox_for_Vision(input_shape, anchors_size[i], max_size = anchors_size[i+1], 
                     aspect_ratios = aspect_ratios[i]).call([feature_heights[i], feature_widths[i]]))
-
     anchors = np.concatenate(anchors, axis=0)
     print(np.shape(anchors))

@@ -92,12 +92,12 @@ class SSD300(nn.Module):
                 conf_layers += [nn.Conv2d(v.out_channels, mbox[k] * num_classes, kernel_size = 3, padding = 1)]
             loc_layers      += [nn.Conv2d(128, 4 * 4, kernel_size = 3, padding = 1),
                                 nn.Conv2d(256, 4 * 4, kernel_size = 3, padding = 1),
-                                nn.Conv2d(512, 6 * 4, kernel_size = 3, padding = 1),
-                                nn.Conv2d(1024, 6 * 4, kernel_size = 3, padding = 1)]
+                                nn.Conv2d(512, 4 * 4, kernel_size = 3, padding = 1),
+                                nn.Conv2d(1024, 4 * 4, kernel_size = 3, padding = 1)]
             conf_layers     += [nn.Conv2d(128, 4 * num_classes, kernel_size = 3, padding = 1),
                                 nn.Conv2d(256, 4 * num_classes, kernel_size = 3, padding = 1),
-                                nn.Conv2d(512, 6 * num_classes, kernel_size = 3, padding = 1),
-                                nn.Conv2d(1024, 6 * num_classes, kernel_size = 3, padding = 1)]
+                                nn.Conv2d(512, 4 * num_classes, kernel_size = 3, padding = 1),
+                                nn.Conv2d(1024, 4 * num_classes, kernel_size = 3, padding = 1)]
         self.loc            = nn.ModuleList(loc_layers)
         self.conf           = nn.ModuleList(conf_layers)
         self.backbone_name  = backbone_name
