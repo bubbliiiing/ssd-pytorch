@@ -25,8 +25,8 @@ class Fusion1(nn.Module):
         # (150,150,128 + 150,150,128) -> 150,150,128
         self.relu = nn.ReLU(inplace=True)
     def forward(self, x1, x2):    #x1 150,150,128     x2 10, 10, 512
-        for up in self.up:
-            x2 = up(x2)
+        for upsample in self.up:
+            x2 = upsample(x2)
         x1 = x1
         x  = self.relu(x1+x2)
         return x

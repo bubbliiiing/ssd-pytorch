@@ -188,12 +188,19 @@ class SSD300(nn.Module):
         #-------------------------------------------------------------#
         #   获得 4个 融合特征层
         #   shape分别为(150,150,128), (75,75,256), (38,38,512), (19,19,1024)
-        #-------------------------------------------------------------#     
+        #-------------------------------------------------------------#  
+        '''   
         for n,fusion in enumerate(self.fusion):
             feature = fusion(fusion_1[n],fusion_2[3-n])
-            sources.append(feature)
-
-
+            sources.append(feature)'''
+        feature1 = self.fusion1(fusion_1[0],fusion_2[3])
+        sources.append(feature1)
+        feature2 = self.fusion2(fusion_1[1],fusion_2[2])
+        sources.append(feature2)
+        feature3 = self.fusion3(fusion_1[2],fusion_2[1])
+        sources.append(feature3)
+        feature4 = self.fusion4(fusion_1[3],fusion_2[0])
+        sources.append(feature4)
 
         #-------------------------------------------------------------#
         #   为获得的6个有效特征层添加回归预测和分类预测
