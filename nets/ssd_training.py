@@ -28,7 +28,7 @@ class MultiboxLoss(nn.Module):
         print(y_true)
         print(y_pred.shape)
         softmax_loss = -torch.sum(y_true * torch.log(y_pred),
-                                      axis=-1)
+                                    axis=-1)
         return softmax_loss
 
     def forward(self, y_true, y_pred):
