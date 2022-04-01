@@ -18,7 +18,7 @@ class AnchorBox():
         #   获取输入进来的特征层的宽和高
         #   比如38x38
         # --------------------------------- #
-        print(layer_shape)
+        #print(layer_shape)
         layer_height    = layer_shape[0]
         layer_width     = layer_shape[1]
         # --------------------------------- #
@@ -108,7 +108,24 @@ def get_vgg_output_length(height, width):
         width   = (width + 2*padding[i] - filter_sizes[i]) // stride[i] + 1
         feature_heights.append(height)
         feature_widths.append(width)
-    return np.array(feature_heights)[-6:], np.array(feature_widths)[-6:]
+    #------fusion 1--------#
+    height,width = 150, 150
+    feature_heights.append(height)
+    feature_widths.append(width)
+    #------fusion 2--------#
+    height,width = 75, 75
+    feature_heights.append(height)
+    feature_widths.append(width)
+    #------fusion 3--------#
+    height,width = 38, 38
+    feature_heights.append(height)
+    feature_widths.append(width)
+    #------fusion 4--------#
+    height,width = 19, 19
+    feature_heights.append(height)
+    feature_widths.append(width)
+    #[ 38  19  10   5   3   1 150  75  38  19]#
+    return np.array(feature_heights)[-10:], np.array(feature_widths)[-10:]
     
 def get_mobilenet_output_length(height, width):
     filter_sizes    = [3, 3, 3, 3, 3, 3, 3, 3, 3]
@@ -124,20 +141,22 @@ def get_mobilenet_output_length(height, width):
         feature_widths.append(width)
     return np.array(feature_heights)[-6:], np.array(feature_widths)[-6:]
 
-def get_anchors(input_shape = [300,300], anchors_size = [30, 60, 111, 162, 213, 264, 315], backbone = 'vgg'):
+def get_anchors(input_shape = [300,300], 
+    anchors_size = [30, 60, 111, 162, 213, 264, 315, 8, 16, 30, 60], 
+    backbone = 'vgg'):
     if backbone == 'vgg':
         feature_heights, feature_widths = get_vgg_output_length(input_shape[0], input_shape[1])
-        aspect_ratios = [[1, 2], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2], [1, 2]]
+        aspect_ratios = [[1, 2], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2], [1, 2],
+                        [1,2],[1,2],[1,2],[1,2]]
     else:
         feature_heights, feature_widths = get_mobilenet_output_length(input_shape[0], input_shape[1])
         aspect_ratios = [[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]
-        
     anchors = []
     for i in range(len(feature_heights)):
         anchor_boxes = AnchorBox(input_shape, anchors_size[i], max_size = anchors_size[i+1], 
                     aspect_ratios = aspect_ratios[i]).call([feature_heights[i], feature_widths[i]])
         anchors.append(anchor_boxes)
-        print(np.shape(anchor_boxes))
+        #print(np.shape(anchor_boxes))
     anchors = np.concatenate(anchors, axis=0)
     return anchors
 
