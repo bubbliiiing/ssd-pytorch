@@ -126,20 +126,6 @@ def get_vgg_output_length(height, width):
     feature_widths.append(width)
     #[ 38  19  10   5   3   1 150  75  38  19]#
     return np.array(feature_heights)[-10:], np.array(feature_widths)[-10:]
-    
-def get_mobilenet_output_length(height, width):
-    filter_sizes    = [3, 3, 3, 3, 3, 3, 3, 3, 3]
-    padding         = [1, 1, 1, 1, 1, 1, 1, 1, 1]
-    stride          = [2, 2, 2, 2, 2, 2, 2, 2, 2]
-    feature_heights = []
-    feature_widths  = []
-
-    for i in range(len(filter_sizes)):
-        height  = (height + 2*padding[i] - filter_sizes[i]) // stride[i] + 1
-        width   = (width + 2*padding[i] - filter_sizes[i]) // stride[i] + 1
-        feature_heights.append(height)
-        feature_widths.append(width)
-    return np.array(feature_heights)[-6:], np.array(feature_widths)[-6:]
 
 def get_anchors(input_shape = [300,300], 
     anchors_size = [30, 60, 111, 162, 213, 264, 315, 8, 16, 30, 60], 
@@ -148,17 +134,26 @@ def get_anchors(input_shape = [300,300],
         feature_heights, feature_widths = get_vgg_output_length(input_shape[0], input_shape[1])
         aspect_ratios = [[1, 2], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2], [1, 2],
                         [1,2],[1,2],[1,2],[1,2]]
-    else:
-        feature_heights, feature_widths = get_mobilenet_output_length(input_shape[0], input_shape[1])
-        aspect_ratios = [[1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2, 3]]
     anchors = []
     for i in range(len(feature_heights)):
         anchor_boxes = AnchorBox(input_shape, anchors_size[i], max_size = anchors_size[i+1], 
                     aspect_ratios = aspect_ratios[i]).call([feature_heights[i], feature_widths[i]])
         anchors.append(anchor_boxes)
-        #print(np.shape(anchor_boxes))
     anchors = np.concatenate(anchors, axis=0)
     return anchors
+
+
+
+
+#---------------------------------------------------#
+#---------------------------------------------------#
+#---------------------------------------------------#
+#---------------------------------------------------#
+#---------------------------------------------------#
+#---------------------------------------------------#
+#---------------------------------------------------#
+#---------------------------------------------------#
+#---------------------------------------------------#
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
