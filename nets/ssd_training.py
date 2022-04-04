@@ -63,11 +63,11 @@ class MultiboxLoss(nn.Module):
         #   每一张图的正样本的个数
         #   num_pos     [batch_size,]
         # --------------------------------------------- #
-        num_pos = torch.sum(y_true[:, :, -1], axis=-1)/15
-        
+        num_pos = torch.sum(y_true[:, :, -1], axis=-1)
+        '''
         print(y_true[:, :, -1].shape)
         print(num_pos.shape)
-        print(num_pos)
+        print(num_pos)'''
         # --------------------------------------------- #
         #   每一张图的负样本的个数
         #   num_neg     [batch_size,]
@@ -119,6 +119,7 @@ class MultiboxLoss(nn.Module):
         num_pos     = torch.where(num_pos != 0, num_pos, torch.ones_like(num_pos))
         total_loss  = torch.sum(pos_conf_loss) + torch.sum(neg_conf_loss) + torch.sum(self.alpha * pos_loc_loss)
         total_loss  = total_loss / torch.sum(num_pos)
+        total_loss  = total_loss / 15
         return total_loss
 
 def weights_init(net, init_type='normal', init_gain=0.02):
