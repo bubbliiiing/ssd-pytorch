@@ -32,7 +32,7 @@ class SSD(object):
         #   验证集损失较低不代表mAP较高，仅代表该权值在验证集上泛化性能较好。
         #   如果出现shape不匹配，同时要注意训练时的model_path和classes_path参数的修改
         #--------------------------------------------------------------------------#
-        "model_path"        : 'model_data/ssd_weights.pth',
+        "model_path"        : 'logs/ep021-loss27.874-val_loss25.676.pth',
         "classes_path"      : 'model_data/voc_classes.txt',
         #---------------------------------------------------------------------#
         #   用于预测的图像大小，和train时使用同一个即可
@@ -54,7 +54,6 @@ class SSD(object):
         #---------------------------------------------------------------------#
         #   用于指定先验框的大小
         #---------------------------------------------------------------------#
-        #'anchors_size'      : [30, 60, 111, 162, 213, 264, 315],
         'anchors_size'      : [30, 60, 111, 162, 213, 264, 315, 8, 16, 30, 60],
         #---------------------------------------------------------------------#
         #   该变量用于控制是否使用letterbox_image对输入图像进行不失真的resize，
@@ -194,6 +193,7 @@ class SSD(object):
         #   图像绘制
         #---------------------------------------------------------#
         for i, c in list(enumerate(top_label)):
+            print(len(top_label))
             predicted_class = self.class_names[int(c)]
             box             = top_boxes[i]
             score           = top_conf[i]
@@ -210,6 +210,7 @@ class SSD(object):
             label_size = draw.textsize(label, font)
             label = label.encode('utf-8')
             print(label, top, left, bottom, right)
+            
             
             if top - label_size[1] >= 0:
                 text_origin = np.array([left, top - label_size[1]])
