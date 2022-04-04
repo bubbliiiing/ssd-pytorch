@@ -63,7 +63,9 @@ class MultiboxLoss(nn.Module):
         #   每一张图的正样本的个数
         #   num_pos     [batch_size,]
         # --------------------------------------------- #
-        num_pos = torch.sum(y_true[:, :, -1], axis=-1)
+        num_pos = torch.sum(y_true[:, :, -1], axis=-1)/15
+        
+        print(y_true[:, :, -1].shape)
         print(num_pos.shape)
         print(num_pos)
         # --------------------------------------------- #
@@ -78,7 +80,7 @@ class MultiboxLoss(nn.Module):
         #   那么则默认选取100个先验框作为负样本
         # --------------------------------------------- #
         has_min = torch.sum(pos_num_neg_mask)
-        print(has_min)
+        '''print(has_min)'''
         # --------------------------------------------- #
         #   从这里往后，与视频中看到的代码有些许不同。
         #   由于以前的负样本选取方式存在一些问题，
