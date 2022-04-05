@@ -273,7 +273,7 @@ if __name__ == "__main__":
         #-------------------------------------------------------------------#
         nbs             = 64
         lr_limit_max    = 1e-3 if optimizer_type == 'adam' else 5e-2
-        lr_limit_min    = 3e-4 if optimizer_type == 'adam' else 5e-4
+        lr_limit_min    = 3e-4 if optimizer_type == 'adam' else 5e-5
         Init_lr_fit     = min(max(batch_size / nbs * Init_lr, lr_limit_min), lr_limit_max)
         Min_lr_fit      = min(max(batch_size / nbs * Min_lr, lr_limit_min * 1e-2), lr_limit_max * 1e-2)
 
@@ -323,7 +323,7 @@ if __name__ == "__main__":
                 #-------------------------------------------------------------------#
                 nbs             = 64
                 lr_limit_max    = 1e-3 if optimizer_type == 'adam' else 5e-2
-                lr_limit_min    = 3e-4 if optimizer_type == 'adam' else 5e-4
+                lr_limit_min    = 3e-4 if optimizer_type == 'adam' else 5e-5
                 Init_lr_fit     = min(max(batch_size / nbs * Init_lr, lr_limit_min), lr_limit_max)
                 Min_lr_fit      = min(max(batch_size / nbs * Min_lr, lr_limit_min * 1e-2), lr_limit_max * 1e-2)
                 #---------------------------------------#
