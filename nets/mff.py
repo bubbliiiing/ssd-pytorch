@@ -16,19 +16,22 @@ class Fusion1(nn.Module):
         super(Fusion1, self).__init__()
         # 10,10,512 -> 150,150,128
         self.up = nn.ModuleList([
+            nn.ReLU(),
             nn.ConvTranspose2d(in_channels2, 128, kernel_size=5, stride=5),
+            nn.BatchNorm2d(128,affine=True),
             nn.Conv2d(128, 256, kernel_size=3, stride=1,padding=1),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
             nn.BatchNorm2d(256,affine=True),
-            nn.ConvTranspose2d(256, out_channels, kernel_size=3, stride=3)]
+            nn.ConvTranspose2d(256, 128, kernel_size=3, stride=3)]
         )
         # (150,150,128 + 150,150,128) -> 150,150,128
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.ReLU()
+        self.conv = nn.Conv2d(128,128,kernel_size=3,stride=1,padding=1)
     def forward(self, x1, x2):    #x1 150,150,128     x2 10, 10, 512
         for upsample in self.up:
             x2 = upsample(x2)
         x1 = x1
-        x  = self.relu(x1+x2)
+        x  = self.relu(self.conv(x1+x2))
         return x
 
 
@@ -48,12 +51,17 @@ class Fusion2(nn.Module):
         super(Fusion2, self).__init__()
         # 5, 5, 256  -> 75,75,128
         self.up = nn.ModuleList([
+            nn.ReLU(),
             nn.ConvTranspose2d(in_channels2, 64, kernel_size=5, stride=5),
+            nn.BatchNorm2d(64,affine=True),
             nn.Conv2d(64, 128, kernel_size=1, stride=1),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(128,affine=True),
+            nn.ReLU(),
             nn.ConvTranspose2d(128,64, kernel_size=3, stride=3),
-            nn.Conv2d(64,out_channels, kernel_size=1, stride=1),]
+            nn.BatchNorm2d(64,affine=True),
+            nn.ReLU(),
+            nn.Conv2d(64,out_channels, kernel_size=1, stride=1),
+            nn.BatchNorm2d(128,affine=True),
+            nn.ReLU(),]
         )
         # 75,75,256  -> 75,75,128
         self.conv = nn.Conv2d(in_channels1,out_channels,kernel_size=3,padding=1)
@@ -85,14 +93,23 @@ class Fusion3(nn.Module):
         super(Fusion3, self).__init__()
         # 3, 3, 256 -> 38,38,256
         self.up = nn.ModuleList([
+            nn.ReLU(),
             nn.ConvTranspose2d(in_channels2, 128, kernel_size=3, stride=3),
+            nn.BatchNorm2d(128,affine=True),
+            nn.ReLU(),
             nn.Conv2d(128, 256, kernel_size=1, stride=1),
-            nn.ReLU(inplace=True),
             nn.BatchNorm2d(256,affine=True),
+            nn.ReLU(inplace=True),
             nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2,output_padding=1),
+            nn.BatchNorm2d(128,affine=True),
+            nn.ReLU(),
             nn.Conv2d(128, 256, kernel_size=1, stride=1),
+            nn.ReLU(),
             nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2),
-            nn.Conv2d(128, out_channels, kernel_size=1, stride=1)]
+            nn.BatchNorm2d(128,affine=True),
+            nn.ReLU(),
+            nn.Conv2d(128, out_channels, kernel_size=1, stride=1),
+            nn.ReLU(),]
         )
         # 38,38,512 -> 38,38,256
         self.conv = nn.Conv2d(in_channels1,out_channels,kernel_size=3,padding=1)
@@ -124,14 +141,22 @@ class Fusion4(nn.Module):
         super(Fusion4, self).__init__()
         # 1,1,256 -> 19,19,512
         self.up = nn.ModuleList([
+            nn.ReLU(),
             nn.ConvTranspose2d(in_channels2, 128, kernel_size=3, stride=3),
+            nn.BatchNorm2d(128,affine=True),
+            nn.ReLU(),
             nn.Conv2d(128, 256, kernel_size=1, stride=1),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(256,affine=True),
+            nn.ReLU(),
             nn.ConvTranspose2d(256, 128, kernel_size=3, stride=3),
+            nn.BatchNorm2d(128,affine=True),
+            nn.ReLU(),
             nn.Conv2d(128, 256, kernel_size=1, stride=1),
+            nn.ReLU(),
             nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2,output_padding=1),
-            nn.Conv2d(128, out_channels, kernel_size=1, stride=1)]
+            nn.BatchNorm2d(128,affine=True),
+            nn.ReLU(),
+            nn.Conv2d(128, out_channels, kernel_size=1, stride=1),
+            nn.ReLU(),]
         )
         # 19,19,1024 -> 19,19,512
         self.conv = nn.Conv2d(in_channels1,out_channels,kernel_size=3,padding=1)
