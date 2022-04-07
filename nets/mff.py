@@ -16,13 +16,11 @@ class Fusion1(nn.Module):
         super(Fusion1, self).__init__()
         # 10,10,512 -> 150,150,128
         self.up = nn.ModuleList([
-            nn.ReLU(inplace=True),
             nn.ConvTranspose2d(in_channels2, 128, kernel_size=5, stride=5),
-            nn.BatchNorm2d(128,affine=True),
             nn.Conv2d(128, 256, kernel_size=3, stride=1,padding=1),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(256,affine=True),
-            nn.ConvTranspose2d(256, out_channels, kernel_size=3, stride=3)],
+            nn.ConvTranspose2d(256, out_channels, kernel_size=3, stride=3)]
         )
         # (150,150,128 + 150,150,128) -> 150,150,128
         self.relu = nn.ReLU(inplace=True)
@@ -50,12 +48,10 @@ class Fusion2(nn.Module):
         super(Fusion2, self).__init__()
         # 5, 5, 256  -> 75,75,128
         self.up = nn.ModuleList([
-            nn.ReLU(inplace=True),
             nn.ConvTranspose2d(in_channels2, 64, kernel_size=5, stride=5),
-            nn.BatchNorm2d(64,affine=True),
             nn.Conv2d(64, 128, kernel_size=1, stride=1),
-            nn.BatchNorm2d(128,affine=True),
             nn.ReLU(inplace=True),
+            nn.BatchNorm2d(128,affine=True),
             nn.ConvTranspose2d(128,64, kernel_size=3, stride=3),
             nn.Conv2d(64,out_channels, kernel_size=1, stride=1),]
         )
