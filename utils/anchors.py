@@ -140,7 +140,6 @@ def get_anchors(input_shape = [300,300],
         aspect_ratios = [[1, 2], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2], [1, 2],
                         [1,2], [1,2], [1,2], [1,2]]
     anchors = []
-
     #ssd 的6个特征层的anchor
     for i in range(len(anchors_size)-1):
         anchor_boxes = AnchorBox(input_shape, min_size=anchors_size[i], max_size = anchors_size[i+1], 
