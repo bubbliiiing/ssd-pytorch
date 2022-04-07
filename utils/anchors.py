@@ -7,7 +7,7 @@ class AnchorBox():
 
         self.min_size = min_size
         self.max_size = max_size
-
+        #[1,1],[2,1/2],[3,1/3]
         self.aspect_ratios = []
         for ar in aspect_ratios:
             self.aspect_ratios.append(ar)
@@ -136,7 +136,7 @@ def get_anchors(input_shape = [300,300],
                         [1,2],[1,2],[1,2],[1,2]]
     anchors = []
     for i in range(len(feature_heights)):
-        anchor_boxes = AnchorBox(input_shape, anchors_size[i], max_size = anchors_size[i+1], 
+        anchor_boxes = AnchorBox(input_shape, min_size=sanchor_size[i], max_size = anchors_size[i+1], 
                     aspect_ratios = aspect_ratios[i]).call([feature_heights[i], feature_widths[i]])
         anchors.append(anchor_boxes)
     anchors = np.concatenate(anchors, axis=0)
