@@ -130,8 +130,9 @@ def get_vgg_output_length(height, width):
     return np.array(feature_heights)[-10:], np.array(feature_widths)[-10:]
 
 def get_anchors(input_shape = [300,300], 
-                anchors_size = [30, 60, 111, 162, 213, 264, 315], 
-                mff_anchor_size = [8, 16, 30, 60, 111],
+                #anchors_size = [30, 60, 111, 162, 213, 264, 315], 
+                #mff_anchor_size = [8, 16, 30, 60, 111],
+                anchors_size = [30, 60, 111, 162, 213, 264, 315,8, 16, 30, 60], 
                 backbone = 'vgg'):
     if backbone == 'vgg':
         #[ 38   19  10  5  3  1  150  75  38  19 ]#
@@ -139,6 +140,7 @@ def get_anchors(input_shape = [300,300],
         aspect_ratios = [[1, 2], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2], [1, 2],
                         [1,2], [1,2], [1,2], [1,2]]
     anchors = []
+    '''
     #ssd 的6个特征层的anchor
     for i in range(len(anchors_size)-1):
         anchor_boxes = AnchorBox(input_shape, min_size=anchors_size[i], max_size = anchors_size[i+1], 
@@ -147,6 +149,11 @@ def get_anchors(input_shape = [300,300],
     #mff-ssd 的4个特征层的anchor
     for i in range(6,10):
         anchor_boxes = AnchorBox(input_shape, min_size=mff_anchor_size[i-6], max_size = mff_anchor_size[i-5], 
+                    aspect_ratios = aspect_ratios[i]).call([feature_heights[i], feature_widths[i]])
+        anchors.append(anchor_boxes)'''
+    print(anchors_size)
+    for i in range(len(feature_heights)):
+        anchor_boxes = AnchorBox(input_shape, min_size=anchors_size[i], max_size = anchors_size[i+1], 
                     aspect_ratios = aspect_ratios[i]).call([feature_heights[i], feature_widths[i]])
         anchors.append(anchor_boxes)
     anchors = np.concatenate(anchors, axis=0)
@@ -290,7 +297,7 @@ if __name__ == '__main__':
     # 输入图片大小为300, 300
     input_shape     = [300, 300] 
     # 指定先验框的大小，即宽高
-    anchors_size    = [30, 60, 111, 162, 213, 264, 315]
+    anchors_size    = [30, 60, 111, 162, 213, 264, 315, 8, 16, 30, 60]
     # feature_heights   [38, 19, 10, 5, 3, 1]
     # feature_widths    [38, 19, 10, 5, 3, 1]
     feature_heights, feature_widths = get_vgg_output_length(input_shape[0], input_shape[1])

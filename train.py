@@ -91,9 +91,11 @@ if __name__ == "__main__":
     #   一般调小浅层先验框的大小就行了！因为浅层负责小物体检测！
     #   比如anchors_size = [21, 45, 99, 153, 207, 261, 315]
     #------------------------------------------------------#
+    '''
     anchors_size = [30, 60, 111, 162, 213, 264, 315]
-    mff_anchor_size = [8, 16, 30, 60, 111]
-
+    mff_anchor_size = [8, 16, 30, 60, 111]'''
+    
+    anchors_size = [30, 60, 111, 162, 213, 264, 315, 8, 16, 30, 60]
     #----------------------------------------------------------------------------------------------------------------------------#
     #   训练分为两个阶段，分别是冻结阶段和解冻阶段。设置冻结阶段是为了满足机器性能不足的同学的训练需求。
     #   冻结训练需要的显存较小，显卡非常差的情况下，可设置Freeze_Epoch等于UnFreeze_Epoch，此时仅仅进行冻结训练。
@@ -194,8 +196,8 @@ if __name__ == "__main__":
     #----------------------------------------------------#
     class_names, num_classes = get_classes(classes_path)
     num_classes += 1
-    anchors = get_anchors(input_shape, anchors_size, mff_anchor_size, backbone)
-
+    #anchors = get_anchors(input_shape, anchors_size, mff_anchor_size, backbone)
+    anchors = get_anchors(input_shape, anchors_size,  backbone)
     model = SSD300(num_classes, backbone, pretrained)
     if not pretrained:
         weights_init(model)
