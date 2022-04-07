@@ -51,7 +51,6 @@ class AnchorBox():
             elif ar != 1:
                 box_widths.append(self.min_size * np.sqrt(ar))
                 box_heights.append(self.min_size / np.sqrt(ar))
-
         # --------------------------------- #
         #   获得所有先验框的宽高1/2
         # --------------------------------- #
