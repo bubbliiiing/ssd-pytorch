@@ -148,10 +148,9 @@ def get_anchors(input_shape = [300,300],
         anchors.append(anchor_boxes)
     #mff-ssd 的4个特征层的anchor
     for i in range(6,10):
-        anchor_boxes = AnchorBox(input_shape, min_size=mff_anchor_size[i], max_size = mff_anchor_size[i+1], 
+        anchor_boxes = AnchorBox(input_shape, min_size=mff_anchor_size[i-6], max_size = mff_anchor_size[i-5], 
                     aspect_ratios = aspect_ratios[i]).call([feature_heights[i], feature_widths[i]])
         anchors.append(anchor_boxes)
-    
     anchors = np.concatenate(anchors, axis=0)
     return anchors
 
