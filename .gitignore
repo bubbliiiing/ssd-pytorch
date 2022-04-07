@@ -134,3 +134,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+model_data/ssd_weights.pth
+model_data/vgg16-397923af.pth
