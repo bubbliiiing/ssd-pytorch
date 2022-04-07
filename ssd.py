@@ -55,6 +55,7 @@ class SSD(object):
         #   用于指定先验框的大小
         #---------------------------------------------------------------------#
         'anchors_size'      : [30, 60, 111, 162, 213, 264, 315, 8, 16, 30, 60],
+        'mff_anchor_size'      : [8, 16, 30, 60],
         #---------------------------------------------------------------------#
         #   该变量用于控制是否使用letterbox_image对输入图像进行不失真的resize，
         #   在多次测试后，发现关闭letterbox_image直接resize的效果更好
@@ -85,7 +86,8 @@ class SSD(object):
         #   计算总的类的数量
         #---------------------------------------------------#
         self.class_names, self.num_classes  = get_classes(self.classes_path)
-        self.anchors                        = torch.from_numpy(get_anchors(self.input_shape, self.anchors_size, self.backbone)).type(torch.FloatTensor)
+        self.anchors                        = torch.from_numpy(get_anchors(self.input_shape, self.anchors_size, 
+                                                self.mff_anchor_size,self.backbone)).type(torch.FloatTensor)
         if self.cuda:
             self.anchors = self.anchors.cuda()
         self.num_classes                    = self.num_classes + 1

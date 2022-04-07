@@ -92,6 +92,7 @@ if __name__ == "__main__":
     #   比如anchors_size = [21, 45, 99, 153, 207, 261, 315]
     #------------------------------------------------------#
     anchors_size = [30, 60, 111, 162, 213, 264, 315, 6, 12, 21, 45]
+    mff_anchor_size = [8, 16, 30, 60, 111]
 
     #----------------------------------------------------------------------------------------------------------------------------#
     #   训练分为两个阶段，分别是冻结阶段和解冻阶段。设置冻结阶段是为了满足机器性能不足的同学的训练需求。
@@ -193,7 +194,7 @@ if __name__ == "__main__":
     #----------------------------------------------------#
     class_names, num_classes = get_classes(classes_path)
     num_classes += 1
-    anchors = get_anchors(input_shape, anchors_size, backbone)
+    anchors = get_anchors(input_shape, anchors_size, mff_anchor_size, backbone)
 
     model = SSD300(num_classes, backbone, pretrained)
     if not pretrained:

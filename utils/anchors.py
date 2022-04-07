@@ -31,6 +31,9 @@ class AnchorBox():
         box_widths  = []
         box_heights = []
         # --------------------------------- #
+        #   self.min_size = anchor_size[i]  self.max_size  = anchor_size[i+1]
+        #                   38, 19, 10,   5,   3,   1,
+        #   anchors_size = [30, 60, 111, 162, 213, 264, 315, 8, 16, 30, 60 ]
         #   self.aspect_ratios一般有两个值
         #   [1, 1, 2, 1/2]
         #   [1, 1, 2, 1/2, 3, 1/3]
@@ -124,21 +127,31 @@ def get_vgg_output_length(height, width):
     height,width = 19, 19
     feature_heights.append(height)
     feature_widths.append(width)
-    #[ 38  19  10   5   3   1 150  75  38  19]#
+    #[ 38   19  10  5  3  1  150  75  38  19 ]#
     return np.array(feature_heights)[-10:], np.array(feature_widths)[-10:]
 
 def get_anchors(input_shape = [300,300], 
-    anchors_size = [30, 60, 111, 162, 213, 264, 315, 8, 16, 30, 60], 
-    backbone = 'vgg'):
+                anchors_size = [30, 60, 111, 162, 213, 264, 315], 
+                mff_anchor_size = [8, 16, 30, 60, 111],
+                backbone = 'vgg'):
     if backbone == 'vgg':
+        #[ 38   19  10  5  3  1  150  75  38  19 ]#
         feature_heights, feature_widths = get_vgg_output_length(input_shape[0], input_shape[1])
         aspect_ratios = [[1, 2], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2], [1, 2],
-                        [1,2],[1,2],[1,2],[1,2]]
+                        [1,2], [1,2], [1,2], [1,2]]
     anchors = []
-    for i in range(len(feature_heights)):
-        anchor_boxes = AnchorBox(input_shape, min_size=anchor_size[i], max_size = anchors_size[i+1], 
+
+    #ssd 的6个特征层的anchor
+    for i in range(len(anchors_size)-1):
+        anchor_boxes = AnchorBox(input_shape, min_size=anchors_size[i], max_size = anchors_size[i+1], 
                     aspect_ratios = aspect_ratios[i]).call([feature_heights[i], feature_widths[i]])
         anchors.append(anchor_boxes)
+    #mff-ssd 的4个特征层的anchor
+    for i in range(6,10):
+        anchor_boxes = AnchorBox(input_shape, min_size=mff_anchor_size[i], max_size = mff_anchor_size[i+1], 
+                    aspect_ratios = aspect_ratios[i]).call([feature_heights[i], feature_widths[i]])
+        anchors.append(anchor_boxes)
+    
     anchors = np.concatenate(anchors, axis=0)
     return anchors
 
