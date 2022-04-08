@@ -91,7 +91,7 @@ class SSD(object):
         #---------------------------------------------------#
         self.class_names, self.num_classes  = get_classes(self.classes_path)
         self.anchors                        = torch.from_numpy(get_anchors(self.input_shape, self.anchors_size, 
-                                                self.mff_anchor_size,self.backbone)).type(torch.FloatTensor)
+                                                self.backbone)).type(torch.FloatTensor)
         if self.cuda:
             self.anchors = self.anchors.cuda()
         self.num_classes                    = self.num_classes + 1
