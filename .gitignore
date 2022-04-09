@@ -139,3 +139,5 @@ model_data/vgg16-397923af.pth
 model_data/4-7.pth
 model_data/4-6.pth
 model_data/ep32-4.8.pth
+img/car.jpg
+img/smallcar.jpg
