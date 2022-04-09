@@ -215,7 +215,7 @@ class SSD(object):
             draw = ImageDraw.Draw(image)
             label_size = draw.textsize(label, font)
             label = label.encode('utf-8')
-            print(label, top, left, bottom, right)
+            #print(label, top, left, bottom, right)
             
             
             if top - label_size[1] >= 0:
