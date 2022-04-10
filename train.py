@@ -44,6 +44,12 @@ if __name__ == "__main__":
     #           没有GPU可以设置成False
     #---------------------------------#
     Cuda = True
+    #------------------------------------------------------------------#
+    #   fp16            是否使用混合精度训练
+    #                   可减少约一半的显存
+    #                   需要pytorch1.6.0以上
+    #------------------------------------------------------------------#
+    fp16            = False
     #---------------------------------------------------------------------#
     #   classes_path    指向model_data下的txt，与自己训练的数据集相关 
     #                   训练前一定要修改classes_path，使其对应自己的数据集
@@ -225,6 +231,11 @@ if __name__ == "__main__":
 
     criterion       = MultiboxLoss(num_classes, neg_pos_ratio=3.0)
     loss_history    = LossHistory(save_dir, model, input_shape=input_shape)
+    if fp16:
+        from torch.cuda.amp import GradScaler as GradScaler
+        scaler = GradScaler()
+    else:
+        scaler = None
 
     model_train = model.train()
     if Cuda:
@@ -354,4 +365,4 @@ if __name__ == "__main__":
             set_optimizer_lr(optimizer, lr_scheduler_func, epoch)
 
             fit_one_epoch(model_train, model, criterion, loss_history, optimizer, epoch, 
-                    epoch_step, epoch_step_val, gen, gen_val, UnFreeze_Epoch, Cuda, save_period, save_dir)
+                    epoch_step, epoch_step_val, gen, gen_val, UnFreeze_Epoch, Cuda, fp16, scaler, save_period, save_dir)

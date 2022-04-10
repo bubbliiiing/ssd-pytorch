@@ -6,7 +6,7 @@ from tqdm import tqdm
 from utils.utils import get_lr
 
 
-def fit_one_epoch(model_train, model, ssd_loss, loss_history, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, Epoch, cuda, save_period, save_dir):
+def fit_one_epoch(model_train, model, ssd_loss, loss_history, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, Epoch, cuda, fp16, scaler, save_period, save_dir):
     total_loss  = 0
     val_loss    = 0 
 
@@ -28,19 +28,39 @@ def fit_one_epoch(model_train, model, ssd_loss, loss_history, optimizer, epoch, 
             #   前向传播
             #----------------------#
             out = model_train(images)
-            #----------------------#
-            #   清零梯度
-            #----------------------#
-            optimizer.zero_grad()
-            #----------------------#
-            #   计算损失
-            #----------------------#
-            loss = ssd_loss.forward(targets, out)
-            #----------------------#
-            #   反向传播
-            #----------------------#
-            loss.backward()
-            optimizer.step()
+            if not fp16:
+                #----------------------#
+                #   清零梯度
+                #----------------------#
+                optimizer.zero_grad()
+                #----------------------#
+                #   计算损失
+                #----------------------#
+                loss = ssd_loss.forward(targets, out)
+                #----------------------#
+                #   反向传播
+                #----------------------#
+                loss.backward()
+                optimizer.step()
+            else:
+                from torch.cuda.amp import autocast
+                with autocast():
+                    #----------------------#
+                    #   清零梯度
+                    #----------------------#
+                    optimizer.zero_grad()
+                    #----------------------#
+                    #   计算损失
+                    #----------------------#
+                    loss = ssd_loss.forward(targets, out)
+
+                #----------------------#
+                #   反向传播
+                #----------------------#
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+
 
             total_loss += loss.item()
             pbar.set_postfix(**{'total_loss'    : total_loss / (iteration + 1), 
