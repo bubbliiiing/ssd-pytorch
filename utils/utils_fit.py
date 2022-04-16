@@ -20,8 +20,8 @@ def fit_one_epoch(model_train, model, ssd_loss, loss_history, optimizer, epoch, 
         images, targets = batch[0], batch[1]
         with torch.no_grad():
             if cuda:
-                images  = images.cuda()
-                targets = targets.cuda()
+                images  = images.cuda(local_rank)
+                targets = targets.cuda(local_rank)
         if not fp16:
             #----------------------#
             #   前向传播
@@ -83,8 +83,8 @@ def fit_one_epoch(model_train, model, ssd_loss, loss_history, optimizer, epoch, 
         images, targets = batch[0], batch[1]
         with torch.no_grad():
             if cuda:
-                images  = images.cuda()
-                targets = targets.cuda()
+                images  = images.cuda(local_rank)
+                targets = targets.cuda(local_rank)
 
             out     = model_train(images)
             optimizer.zero_grad()
