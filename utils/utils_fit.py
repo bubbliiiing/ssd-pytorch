@@ -12,24 +12,41 @@ def fit_one_epoch(model_train, model, ssd_loss, loss_history, optimizer, epoch, 
 
     if local_rank == 0:
         print('Start Train')
+        pbar = tqdm(total=epoch_step,desc=f'Epoch {epoch + 1}/{Epoch}',postfix=dict,mininterval=0.3)
     model_train.train()
-    with tqdm(total=epoch_step,desc=f'Epoch {epoch + 1}/{Epoch}',postfix=dict,mininterval=0.3) as pbar:
-        for iteration, batch in enumerate(gen):
-            if iteration >= epoch_step:
-                break
-            images, targets = batch[0], batch[1]
-            with torch.no_grad():
-                if cuda:
-                    images  = torch.from_numpy(images).type(torch.FloatTensor).cuda()
-                    targets = torch.from_numpy(targets).type(torch.FloatTensor).cuda()
-                else:
-                    images  = torch.from_numpy(images).type(torch.FloatTensor)
-                    targets = torch.from_numpy(targets).type(torch.FloatTensor) 
+    for iteration, batch in enumerate(gen):
+        if iteration >= epoch_step:
+            break
+        images, targets = batch[0], batch[1]
+        with torch.no_grad():
+            if cuda:
+                images  = images.cuda()
+                targets = targets.cuda()
+        if not fp16:
             #----------------------#
             #   前向传播
             #----------------------#
             out = model_train(images)
-            if not fp16:
+            #----------------------#
+            #   清零梯度
+            #----------------------#
+            optimizer.zero_grad()
+            #----------------------#
+            #   计算损失
+            #----------------------#
+            loss = ssd_loss.forward(targets, out)
+            #----------------------#
+            #   反向传播
+            #----------------------#
+            loss.backward()
+            optimizer.step()
+        else:
+            from torch.cuda.amp import autocast
+            with autocast():
+                #----------------------#
+                #   前向传播
+                #----------------------#
+                out = model_train(images)
                 #----------------------#
                 #   清零梯度
                 #----------------------#
@@ -38,64 +55,46 @@ def fit_one_epoch(model_train, model, ssd_loss, loss_history, optimizer, epoch, 
                 #   计算损失
                 #----------------------#
                 loss = ssd_loss.forward(targets, out)
-                #----------------------#
-                #   反向传播
-                #----------------------#
-                loss.backward()
-                optimizer.step()
-            else:
-                from torch.cuda.amp import autocast
-                with autocast():
-                    #----------------------#
-                    #   清零梯度
-                    #----------------------#
-                    optimizer.zero_grad()
-                    #----------------------#
-                    #   计算损失
-                    #----------------------#
-                    loss = ssd_loss.forward(targets, out)
 
-                #----------------------#
-                #   反向传播
-                #----------------------#
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
+            #----------------------#
+            #   反向传播
+            #----------------------#
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
-            total_loss += loss.item()
-            
-            if local_rank == 0:
-                pbar.set_postfix(**{'total_loss'    : total_loss / (iteration + 1), 
-                                    'lr'            : get_lr(optimizer)})
-                pbar.update(1)
+        total_loss += loss.item()
+        
+        if local_rank == 0:
+            pbar.set_postfix(**{'total_loss'    : total_loss / (iteration + 1), 
+                                'lr'            : get_lr(optimizer)})
+            pbar.update(1)
                 
     if local_rank == 0:
+        pbar.close()
         print('Finish Train')
         print('Start Validation')
+        pbar = tqdm(total=epoch_step_val, desc=f'Epoch {epoch + 1}/{Epoch}',postfix=dict,mininterval=0.3)
 
     model_train.eval()
-    with tqdm(total=epoch_step_val, desc=f'Epoch {epoch + 1}/{Epoch}',postfix=dict,mininterval=0.3) as pbar:
-        for iteration, batch in enumerate(gen_val):
-            if iteration >= epoch_step_val:
-                break
-            images, targets = batch[0], batch[1]
-            with torch.no_grad():
-                if cuda:
-                    images  = torch.from_numpy(images).type(torch.FloatTensor).cuda()
-                    targets = torch.from_numpy(targets).type(torch.FloatTensor).cuda()
-                else:
-                    images  = torch.from_numpy(images).type(torch.FloatTensor)
-                    targets = torch.from_numpy(targets).type(torch.FloatTensor) 
+    for iteration, batch in enumerate(gen_val):
+        if iteration >= epoch_step_val:
+            break
+        images, targets = batch[0], batch[1]
+        with torch.no_grad():
+            if cuda:
+                images  = images.cuda()
+                targets = targets.cuda()
 
-                out = model_train(images)
-                optimizer.zero_grad()
-                loss = ssd_loss.forward(targets, out)
-                val_loss += loss.item()
+            out     = model_train(images)
+            optimizer.zero_grad()
+            loss    = ssd_loss.forward(targets, out)
+            val_loss += loss.item()
 
-                if local_rank == 0:
-                    pbar.set_postfix(**{'val_loss'      : val_loss / (iteration + 1), 
-                                        'lr'            : get_lr(optimizer)})
-                    pbar.update(1)
+            if local_rank == 0:
+                pbar.set_postfix(**{'val_loss'      : val_loss / (iteration + 1), 
+                                    'lr'            : get_lr(optimizer)})
+                pbar.update(1)
 
     if local_rank == 0:
         print('Finish Validation')

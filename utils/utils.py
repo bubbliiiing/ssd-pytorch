@@ -52,3 +52,17 @@ def preprocess_input(inputs):
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:
         return param_group['lr']
+
+def download_weights(backbone, model_dir="./model_data"):
+    import os
+    from torch.hub import load_state_dict_from_url
+    
+    download_urls = {
+        'vgg'           : 'https://download.pytorch.org/models/vgg16-397923af.pth',
+        'mobilenetv2'   : 'https://download.pytorch.org/models/mobilenet_v2-b0353104.pth'
+    }
+    url = download_urls[backbone]
+    
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+    load_state_dict_from_url(url, model_dir)

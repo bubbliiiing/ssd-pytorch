@@ -1,8 +1,11 @@
 import cv2
 import numpy as np
+import torch
 from PIL import Image
 from torch.utils.data.dataset import Dataset
+
 from utils.utils import cvtColor, preprocess_input
+
 
 class SSDDataset(Dataset):
     def __init__(self, annotation_lines, input_shape, anchors, batch_size, num_classes, train, overlap_threshold = 0.5):
@@ -303,6 +306,6 @@ def ssd_dataset_collate(batch):
     for img, box in batch:
         images.append(img)
         bboxes.append(box)
-    images = np.array(images)
-    bboxes = np.array(bboxes)
+    images = torch.from_numpy(np.array(images)).type(torch.FloatTensor)
+    bboxes = torch.from_numpy(np.array(bboxes)).type(torch.FloatTensor)
     return images, bboxes

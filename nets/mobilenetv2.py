@@ -1,5 +1,5 @@
 from torch import nn
-from torchvision.models.utils import load_state_dict_from_url
+from torch.hub import load_state_dict_from_url
 
 def _make_divisible(v, divisor, min_value=None):
     if min_value is None:
@@ -106,8 +106,7 @@ class MobileNetV2(nn.Module):
 def mobilenet_v2(pretrained=False, progress=True, **kwargs):
     model = MobileNetV2(**kwargs)
     if pretrained:
-        state_dict = load_state_dict_from_url('https://download.pytorch.org/models/mobilenet_v2-b0353104.pth', model_dir="./model_data",
-                                              progress=progress)
+        state_dict = load_state_dict_from_url('https://download.pytorch.org/models/mobilenet_v2-b0353104.pth', model_dir="./model_data", progress=progress)
         model.load_state_dict(state_dict)
     del model.classifier
     return model
