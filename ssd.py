@@ -10,7 +10,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 from nets.ssd import SSD300
 from utils.anchors import get_anchors
-from utils.utils import cvtColor, get_classes, resize_image, preprocess_input
+from utils.utils import (cvtColor, get_classes, preprocess_input, resize_image,
+                         show_config)
 from utils.utils_bbox import BBoxUtility
 
 warnings.filterwarnings("ignore")
@@ -79,6 +80,7 @@ class SSD(object):
     #---------------------------------------------------#
     def __init__(self, **kwargs):
         self.__dict__.update(self._defaults)
+        show_config(**self._defaults)
         for name, value in kwargs.items():
             setattr(self, name, value)
         #---------------------------------------------------#
