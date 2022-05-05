@@ -143,3 +143,5 @@ img/car.jpg
 img/smallcar.jpg
 2007_train.txt
 2007_val.txt
+*.jpg
+*.pth
