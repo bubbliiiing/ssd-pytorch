@@ -145,3 +145,5 @@ img/smallcar.jpg
 2007_val.txt
 *.jpg
 *.pth
+*.jpeg
+*.png
