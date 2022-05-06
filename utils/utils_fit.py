@@ -97,6 +97,7 @@ def fit_one_epoch(model_train, model, ssd_loss, loss_history, optimizer, epoch, 
                 pbar.update(1)
 
     if local_rank == 0:
+        pbar.close()
         print('Finish Validation')
         loss_history.append_loss(epoch + 1, total_loss / epoch_step, val_loss / epoch_step_val)
         print('Epoch:'+ str(epoch+1) + '/' + str(Epoch))
