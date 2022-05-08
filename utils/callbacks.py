@@ -99,6 +99,10 @@ class EvalCallback():
         self.eval_flag          = eval_flag
         self.period             = period
         
+        self.anchors            = torch.from_numpy(self.anchors).type(torch.FloatTensor)
+        if self.cuda:
+            self.anchors = self.anchors.cuda()
+        
         self.bbox_util = BBoxUtility(self.num_classes)
         
         self.maps       = [0]
