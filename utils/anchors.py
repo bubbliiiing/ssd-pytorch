@@ -124,7 +124,7 @@ def get_mobilenet_output_length(height, width):
     return np.array(feature_heights)[-6:], np.array(feature_widths)[-6:]
 
 def get_anchors(input_shape = [300,300], anchors_size = [30, 60, 111, 162, 213, 264, 315], backbone = 'vgg'):
-    if backbone == 'vgg':
+    if backbone == 'vgg' or backbone == 'resnet50':
         feature_heights, feature_widths = get_vgg_output_length(input_shape[0], input_shape[1])
         aspect_ratios = [[1, 2], [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, 2], [1, 2]]
     else:

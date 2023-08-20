@@ -93,7 +93,7 @@ if __name__ == "__main__":
     #------------------------------------------------------#
     input_shape     = [300, 300]
     #------------------------------------------------------#
-    #   vgg或者mobilenetv2
+    #   vgg或者mobilenetv2或者resnet50
     #------------------------------------------------------#
     backbone        = "vgg"
     #----------------------------------------------------------------------------------------------------------------------------#
@@ -392,8 +392,11 @@ if __name__ == "__main__":
             if backbone == "vgg":
                 for param in model.vgg[:28].parameters():
                     param.requires_grad = False
-            else:
+            elif backbone == "mobilenetv2":
                 for param in model.mobilenet.parameters():
+                    param.requires_grad = False
+            else:
+                for param in model.resnet.parameters():
                     param.requires_grad = False
 
         #-------------------------------------------------------------------#
@@ -486,8 +489,11 @@ if __name__ == "__main__":
                 if backbone == "vgg":
                     for param in model.vgg[:28].parameters():
                         param.requires_grad = True
-                else:
+                elif backbone == "mobilenetv2":
                     for param in model.mobilenet.parameters():
+                        param.requires_grad = True
+                else:
+                    for param in model.resnet.parameters():
                         param.requires_grad = True
                         
                 epoch_step      = num_train // batch_size

@@ -68,7 +68,8 @@ def download_weights(backbone, model_dir="./model_data"):
     
     download_urls = {
         'vgg'           : 'https://download.pytorch.org/models/vgg16-397923af.pth',
-        'mobilenetv2'   : 'https://download.pytorch.org/models/mobilenet_v2-b0353104.pth'
+        'mobilenetv2'   : 'https://download.pytorch.org/models/mobilenet_v2-b0353104.pth',
+        'resnet50'      : 'https://s3.amazonaws.com/pytorch/models/resnet50-19c8e357.pth'
     }
     url = download_urls[backbone]
     

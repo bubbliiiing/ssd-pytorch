@@ -5,6 +5,7 @@ import torch.nn.init as init
 
 from nets.mobilenetv2 import InvertedResidual, mobilenet_v2
 from nets.vgg import vgg as add_vgg
+from nets.resnet import resnet50
 
 
 class L2Norm(nn.Module):
@@ -28,7 +29,12 @@ class L2Norm(nn.Module):
 
 def add_extras(in_channels, backbone_name):
     layers = []
-    if backbone_name == 'vgg':
+    if backbone_name == 'mobilenetv2':
+        layers += [InvertedResidual(in_channels, 512, stride=2, expand_ratio=0.2)]
+        layers += [InvertedResidual(512, 256, stride=2, expand_ratio=0.25)]
+        layers += [InvertedResidual(256, 256, stride=2, expand_ratio=0.5)]
+        layers += [InvertedResidual(256, 64, stride=2, expand_ratio=0.25)]
+    else:
         # Block 6
         # 19,19,1024 -> 19,19,256 -> 10,10,512
         layers += [nn.Conv2d(in_channels, 256, kernel_size=1, stride=1)]
@@ -48,12 +54,7 @@ def add_extras(in_channels, backbone_name):
         # 3,3,256 -> 3,3,128 -> 1,1,256
         layers += [nn.Conv2d(256, 128, kernel_size=1, stride=1)]
         layers += [nn.Conv2d(128, 256, kernel_size=3, stride=1)]
-    else:
-        layers += [InvertedResidual(in_channels, 512, stride=2, expand_ratio=0.2)]
-        layers += [InvertedResidual(512, 256, stride=2, expand_ratio=0.25)]
-        layers += [InvertedResidual(256, 256, stride=2, expand_ratio=0.5)]
-        layers += [InvertedResidual(256, 64, stride=2, expand_ratio=0.25)]
-        
+
     return nn.ModuleList(layers)
 
 class SSD300(nn.Module):
@@ -85,7 +86,7 @@ class SSD300(nn.Module):
             for k, v in enumerate(self.extras[1::2], 2):
                 loc_layers  += [nn.Conv2d(v.out_channels, mbox[k] * 4, kernel_size = 3, padding = 1)]
                 conf_layers += [nn.Conv2d(v.out_channels, mbox[k] * num_classes, kernel_size = 3, padding = 1)]
-        else:
+        elif backbone_name == "mobilenetv2":
             self.mobilenet  = mobilenet_v2(pretrained).features
             self.extras     = add_extras(1280, backbone_name)
             self.L2Norm     = L2Norm(96, 20)
@@ -100,6 +101,32 @@ class SSD300(nn.Module):
             for k, v in enumerate(self.extras, 2):
                 loc_layers  += [nn.Conv2d(v.out_channels, mbox[k] * 4, kernel_size = 3, padding = 1)]
                 conf_layers += [nn.Conv2d(v.out_channels, mbox[k] * num_classes, kernel_size = 3, padding = 1)]
+        elif backbone_name == "resnet50":
+            self.resnet     = nn.Sequential(*resnet50(pretrained).features)
+            self.extras     = add_extras(1024, backbone_name)
+            self.L2Norm     = L2Norm(512, 20)
+            mbox            = [4, 6, 6, 6, 4, 4]
+            
+            loc_layers      = []
+            conf_layers     = []
+            out_channels    = [512, 1024]
+            #---------------------------------------------------#
+            #   在add_vgg获得的特征层里
+            #   第layer3层和layer4层可以用来进行回归预测和分类预测。
+            #---------------------------------------------------#
+            for k, v in enumerate(out_channels):
+                loc_layers  += [nn.Conv2d(out_channels[k], mbox[k] * 4, kernel_size = 3, padding = 1)]
+                conf_layers += [nn.Conv2d(out_channels[k], mbox[k] * num_classes, kernel_size = 3, padding = 1)]
+            #-------------------------------------------------------------#
+            #   在add_extras获得的特征层里
+            #   第1层、第3层、第5层、第7层可以用来进行回归预测和分类预测。
+            #   shape分别为(10,10,512), (5,5,256), (3,3,256), (1,1,256)
+            #-------------------------------------------------------------#  
+            for k, v in enumerate(self.extras[1::2], 2):
+                loc_layers  += [nn.Conv2d(v.out_channels, mbox[k] * 4, kernel_size = 3, padding = 1)]
+                conf_layers += [nn.Conv2d(v.out_channels, mbox[k] * num_classes, kernel_size = 3, padding = 1)]
+        else:
+            raise ValueError("The backbone_name is not support")
 
         self.loc            = nn.ModuleList(loc_layers)
         self.conf           = nn.ModuleList(conf_layers)
@@ -120,9 +147,12 @@ class SSD300(nn.Module):
         if self.backbone_name == "vgg":
             for k in range(23):
                 x = self.vgg[k](x)
-        else:
+        elif self.backbone_name == "mobilenetv2":
             for k in range(14):
                 x = self.mobilenet[k](x)
+        elif self.backbone_name == "resnet50":
+            for k in range(6):
+                x = self.resnet[k](x)
         #---------------------------#
         #   conv4_3的内容
         #   需要进行L2标准化
@@ -137,9 +167,12 @@ class SSD300(nn.Module):
         if self.backbone_name == "vgg":
             for k in range(23, len(self.vgg)):
                 x = self.vgg[k](x)
-        else:
+        elif self.backbone_name == "mobilenetv2":
             for k in range(14, len(self.mobilenet)):
                 x = self.mobilenet[k](x)
+        elif self.backbone_name == "resnet50":
+            for k in range(6, len(self.resnet)):
+                x = self.resnet[k](x)
 
         sources.append(x)
         #-------------------------------------------------------------#
@@ -149,7 +182,7 @@ class SSD300(nn.Module):
         #-------------------------------------------------------------#      
         for k, v in enumerate(self.extras):
             x = F.relu(v(x), inplace=True)
-            if self.backbone_name == "vgg":
+            if self.backbone_name == "vgg" or self.backbone_name == "resnet50":
                 if k % 2 == 1:
                     sources.append(x)
             else:
